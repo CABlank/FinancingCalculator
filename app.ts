@@ -79,7 +79,41 @@ interface YearEnd {
   yearlyDCFInterest: number; // Use camelCase as per TypeScript naming conventions
   yearlyInterest: number;
   yearlyCumulative: number;
-} 
+}
+
+interface AnnuityArrayItem {
+  RowID: number;
+  Date: Date;
+  Amount: number;
+  Kind: number;
+  Escrow: boolean;
+  CaseCode: string;
+  Owner: string;
+  PmtNmbr: number;
+  Freq: string;
+}
+
+interface Annuity {
+  Compounding: string;
+  CashFlows: CashFlow[];
+}
+
+interface DeferralData {
+  pvDate: Date;
+  from: Date;
+  to: Date;
+  compoundFreq: number;
+  paymentFreq: number;
+}
+
+
+const FreqMap: { [key: string]: number } = {
+  Monthly: 12,
+  Quarterly: 4,
+  'Semi-Annual': 2,
+  Annual: 1,
+  Payment: 0,
+};
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -113,9 +147,11 @@ async function Calc(req: Request, schedule: boolean): Promise<{ answer: Answer |
   const annuityResponse  = await NewAnnuity(req);
   
   if (!annuityResponse.error) {
-    const { answer, error } = CalcAnnuity(annuity, schedule);
-    result.answer = answer;
-    result.error = error;
+    const response2 = calcAnnuity(annuityResponse.annuity, schedule);
+    if(response2) {
+      result.answer = response2.answer;
+      result.error = response2.error;
+    }
   }
 
   return result;
@@ -142,41 +178,212 @@ async function NewAnnuity(req: Request): Promise<{ error: Error | null; annuity:
   return { error, annuity };
 }
 
-function calcAnnuity(annuity, schedule) {
+function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
   let err = null;
-  const result = {};
-  let aa = [];
-  [aa, annuity.AsOf] = newCashflowArray(annuity.CashFlows, annuity.Compounding);
-  setStubs(aa, annuity);
+  const result = {'UnknownRow': 0, 'Answer': };
+  if(annuity) {
+    let aa = [];
+    
+      [aa, annuity.AsOf] = newCashflowArray(annuity.CashFlows, annuity.Compounding);
+      setStubs(aa, annuity);
+    
 
-  if (annuity.Unknown) {
-    result.UnknownRow = -1;
-    [result.Answer, err] = amortizeRate(aa, annuity);
-    annuity.Effective = effective(result.Answer);
-  } else {
-    result.UnknownRow = getUnknownRow(annuity);
-    annuity.DailyRate = annuity.Nominal / 365;
-    [result.Answer, err] = amortizeCF(aa, annuity, result.UnknownRow);
-  }
-
-  if (err === null) {
-    result.PV = getAnnuityPV(aa, annuity.AsOf);
-    if (result.PV !== 0 && result.DCFpv === 0) {
-      result.DCFpv = estimatePV(aa, annuity.Effective);
+    if (annuity.Unknown) {
+      result.UnknownRow = -1;
+      [result.Answer, err] = amortizeRate(aa, annuity);
+      annuity.Effective = effective(result.Answer);
+    } else {
+      result.UnknownRow = getUnknownRow(annuity);
+      annuity.DailyRate = annuity.Nominal / 365;
+      [result.Answer, err] = amortizeCF(aa, annuity, result.UnknownRow);
     }
 
-    annuity.Aggregate = toFixed(aaAggregate(aa), 2);
-    result.WAL = calcWAL(aa, annuity.Aggregate);
+    if (err === null) {
+      result.PV = getAnnuityPV(aa, annuity.AsOf);
+      if (result.PV !== 0 && result.DCFpv === 0) {
+        result.DCFpv = estimatePV(aa, annuity.Effective);
+      }
 
-    if (schedule) {
-      result.AmSchedule = createAmSchedule(result, aa, annuity, paymentCount(annuity.CashFlows));
-      result.YeValuations = yearEndSummary(aa, annuity, result);
+      annuity.Aggregate = toFixed(aaAggregate(aa), 2);
+      result.WAL = calcWAL(aa, annuity.Aggregate);
+
+      if (schedule) {
+        result.AmSchedule = createAmSchedule(result, aa, annuity, paymentCount(annuity.CashFlows));
+        result.YeValuations = yearEndSummary(aa, annuity, result);
+      }
+      result.TotalPayout = annuity.Aggregate;
     }
-    result.TotalPayout = annuity.Aggregate;
   }
-
   return [result, err];
 }
+
+type AnnuityArray = AnnuityArrayItem[];
+
+function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date] {
+  let pFreq: number, cfType: number, i: number;
+  let firstPaymentDate: Date, asOf: Date;
+  let sortRequired = false, asOfBool = false;
+  const aa: AnnuityArray = new Array<AnnuityArrayItem>(PaymentCount(pmts));
+
+  for (let row = 0; row < pmts.length; row++) {
+    const v = pmts[row];
+    firstPaymentDate = dateutils.ParseDateFromString(v.First);
+    let amount = v.Amount;
+    let tracker = amount;
+
+    if (v.COLA !== 0 && v.ColaPeriods === 0) {
+      pmts[row].ColaPeriods = FreqMap[v.Frequency];
+    }
+
+    if (v.CfType === "Invest") {
+      cfType = -1;
+      if (!asOfBool) {
+        asOf = firstPaymentDate;
+        asOfBool = true;
+      }
+    } else {
+      cfType = 1;
+    }
+
+    pFreq = FreqMap[v.Frequency] || FreqMap[compounding];
+    pFreq = 12 / pFreq;
+    const escrow = v.Escrow;
+
+    if (i > 0 && !sortRequired) {
+      sortRequired = dateutils.CompareDates(firstPaymentDate, aa[i - 1].Date);
+    }
+
+    for (let j = 0; j < v.Number; j++) {
+      aa[i] = {
+        RowID: row,
+        Date: dateutils.AddMonths(firstPaymentDate, j * pFreq),
+        Amount: amount,
+        Kind: cfType,
+        Escrow: escrow,
+        CaseCode: v.CaseCode,
+        Owner: v.Buyer,
+        PmtNmbr: i,
+        Freq: v.Frequency,
+      };
+      i++;
+
+      if ((j + 1) * pFreq % 12 === 0 && v.COLA !== 0 && j !== v.Number - 1) {
+        tracker *= 1.0 + v.COLA;
+        amount = ToFixed(tracker, 2); // Define ToFixed function as needed
+      }
+    }
+  }
+
+  if (sortRequired) {
+    aa.sort((a, b) => {
+      if (a.Date < b.Date) {
+        return -1;
+      } else if (a.Date > b.Date) {
+        return 1;
+      } else {
+        return a.RowID - b.RowID;
+      }
+    });
+  }
+
+  return [aa, asOf];
+}
+
+function amortize(aa: AnnuityArrayItem[], annuity: Annuity): number {
+  let interest: number = 0;
+  let balance: number = 0;
+
+  for (const v of aa) {
+    interest = v.stubDays * annuity.DailyRate * balance;
+    balance += interest;
+    balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods);
+    balance -= v.Amount * v.Kind;
+  }
+
+  return balance;
+}
+
+function amortizeRate(aa: AnnuityArrayItem[], annuity: Annuity): [number, Error | null] {
+  let guess: number = 0;
+  let balance: number = 0;
+  let min: number = -1;
+  let max: number = 1;
+
+  for (let ok = true; ok; ok = (max - min) > 0.0000001) {
+    guess = (min + max) / 2;
+
+    if (min > 0.99999 || max < -0.99999) {
+      return [0, new Error(`Interest rate out of range error with guessed rate = ${guess} and annuity pv = ${annuity.CashFlows[0].Amount}`)];
+    }
+
+    annuity.Nominal = guess;
+    annuity.DailyRate = annuity.Nominal / 365;
+    balance = amortize(aa, annuity);
+
+    if (balance > 0) {
+      max = guess;
+    } else {
+      min = guess;
+    }
+  }
+
+  return [guess, null];
+}
+
+function setStubs(aa: AnnuityArrayItem[], annuity: Annuity): void {
+  const compounding: number = 12 / FreqMap[annuity.Compounding];
+  let payPeriod: number;
+
+  const data: DeferralData = {
+    pvDate: aa[0].Date,
+    from: aa[0].Date,
+    to: aa[0].Date,
+    compoundFreq: compounding,
+    paymentFreq: 1,
+  };
+
+  for (let i = 0; i < aa.length; i++) {
+    const v = aa[i];
+
+    if (i === 0 || aa[0].Date.toString() === v.Date.toString()) {
+      aa[i].stubDays = 0;
+      aa[i].stubPeriods = 0;
+      aa[i].dcfStubDays = 0;
+      aa[i].dcfStubPeriods = 0;
+      continue;
+    }
+
+    data.from = aa[i - 1].Date;
+    data.to = v.Date;
+
+    if ((data.paymentFreq = FreqMap[annuity.CashFlows[v.RowID].Frequency]) !== 0) {
+      data.paymentFreq = 12 / data.paymentFreq;
+    } else {
+      data.paymentFreq = 1;
+    }
+
+    if (v.RowID === aa[i - 1].RowID) {
+      payPeriod = data.paymentFreq / data.compoundFreq;
+      aa[i].stubDays = 0;
+      aa[i].stubPeriods = payPeriod;
+    } else {
+      [aa[i].stubDays, aa[i].stubPeriods] = createStubs(data);
+    }
+
+    data.from = data.pvDate;
+    [aa[i].dcfStubDays, aa[i].dcfStubPeriods] = createStubs(data);
+  }
+}
+
+
+
+
+
+
+
+
+
+
 
 app.set('views', path.join(__dirname, 'views'));
 
