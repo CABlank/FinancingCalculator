@@ -1,954 +1,514 @@
-function greet(name: string): string {
-  return `Hello, ${name}!`;
-}
-
 import express, { Request, Response } from 'express';
 import { Readable } from 'stream';
 
-import { parse } from 'date-fns';
+function Greet(name: string): string {
+return `Hello, ${name}!`;
+}
 
 interface Annuity {
-  DCFCode: string;
-  Compounding: string;
-  Effective: number;
-  Nominal: number;
-  Label: string;
-  DailyRate: number;
-  Desc: string;
-  Type: string;
-  Unknown: boolean;
-  UseAmSchedule: boolean;
-  EstimateDCF: number;
-  AsOf: Date;
-  CashFlows: CashFlow[];
-  Carrier: string;
-  Aggregate: number;
-  CustomCF: boolean;
-  DocumentRecipient: string;
+DCFCode: string;
+Compounding: string;
+Effective: number;
+Nominal: number;
+Label: string;
+DailyRate: number;
+Desc: string;
+Type: string;
+Unknown: boolean;
+UseAmSchedule: boolean;
+EstimateDCF: number;
+AsOf: Date;
+CashFlows: CashFlow[];
+Carrier: string;
+Aggregate: number;
+CustomCF: boolean;
+DocumentRecipient: string;
 }
 
 interface CashFlow {
-  CaseCode: string;
-  ParentChild: string;
-  Buyer: string;
-  CfType: string;
-  First: string;
-  Last: string;
-  Number: number;
-  Amount: number;
-  Frequency: string;
-  COLA: number;
-  ColaPeriods: number;
-  Unknown: boolean;
-  Escrow: boolean;
+CaseCode: string;
+ParentChild: string;
+Buyer: string;
+CfType: string;
+First: string;
+Last: string;
+Number: number;
+Amount: number;
+Frequency: string;
+COLA: number;
+ColaPeriods: number;
+Unknown: boolean;
+Escrow: boolean;
 }
 
 interface Answer {
-  PV: number;
-  DCFpv: number;
-  DCFRounding: number;
-  Rate: number;
-  row: number; // Note: In TypeScript, property names are case-sensitive, so "row" instead of "UnknownRow"
-  answer: number;
-  rounding: number;
-  wal: number;
-  hwmark: number; // Note: In TypeScript, property names should use camelCase, so "hwmark" instead of "HWMark"
-  hwMarkDate: string; // Note: In TypeScript, property names should use camelCase, so "hwMarkDate" instead of "HWMarkDate"
-  term: number;
-  isamschedule: boolean; // Note: In TypeScript, property names should use camelCase, so "isamschedule" instead of "IsAmSchedule"
-  totalPayout: number; // Note: In TypeScript, property names should use camelCase, so "totalPayout" instead of "TotalPayout"
-  isPmtSchedule: boolean; // Note: In TypeScript, property names should use camelCase, so "isPmtSchedule" instead of "IsPmtSchedule"
-  schedule: Schedule[]; // Assuming "Schedule" is another type you have defined
-  yearend: YearEnd[]; // Assuming "YearEnd" is another type you have defined
+PV: number;
+DCFpv: number;
+DCFRounding: number;
+Rate: number;
+UnknownRow: number;
+Answer: number;
+Rounding: number;
+Wal: number;
+HWMark: number;
+HWMarkDate: string;
+Term: number;
+IsAmSchedule: boolean;
+TotalPayout: number;
+IsPmtSchedule: boolean;
+Schedule: Schedule[];
+Yearend: YearEnd[];
 }
+
 interface Schedule {
-  type: string;
-  date: string;
-  cashflow: number;
-  principal: number;
-  interest: number;
-  dcfprincipal: number;
-  dcfinterest: number;
-  dcf_balance: number;
-  balance: number;
+Type: string;
+Date: string;
+Cashflow: number;
+Principal: number;
+Interest: number;
+DCFPrincipal: number;
+DCFInterest: number;
+DCF_Balance: number;
+Balance: number;
 }
 
 interface YearEnd {
-  date: string;
-  valuation: number;
-  aggregate: number; // You can use the same name as in Go
-  yearlyDCFInterest: number; // Use camelCase as per TypeScript naming conventions
-  yearlyInterest: number;
-  yearlyCumulative: number;
+Date: string;
+Valuation: number;
+Aggregate: number;
+YearlyDCFInterest: number;
+YearlyInterest: number;
+YearlyCumulative: number;
 }
 
 interface AnnuityArrayItem {
-  RowID: number;
-  Date: Date;
-  Amount: number;
-  Kind: number;
-  Escrow: boolean;
-  CaseCode: string;
-  Owner: string;
-  PmtNmbr: number;
-  Freq: string;
-}
-
-interface Annuity {
-  Compounding: string;
-  CashFlows: CashFlow[];
+RowID: number;
+Date: Date;
+Amount: number;
+Kind: number;
+Escrow: boolean;
+CaseCode: string;
+Owner: string;
+PmtNmbr: number;
+Freq: string;
 }
 
 interface DeferralData {
-  pvDate: Date;
-  from: Date;
-  to: Date;
-  compoundFreq: number;
-  paymentFreq: number;
+PvDate: Date;
+From: Date;
+To: Date;
+CompoundFreq: number;
+PaymentFreq: number;
 }
-
-interface YearEnd {
-    Date: string;
-    Value: number;
-    Aggregate: number;
-    YearlyInterest: number;
-    YearlyCumulative: number;
-}
-
-interface CfArray {
-    Date: Date;
-    Amount: number;
-    Kind: number;
-    stubPeriods: number;
-    stubDays: number;
-}
-
 
 const FreqMap: { [key: string]: number } = {
-  Monthly: 12,
-  Quarterly: 4,
-  SemiAnnual: 2,
-  Annual: 1,
-  Payment: 0,
+Monthly: 12,
+Quarterly: 4,
+SemiAnnual: 2,
+Annual: 1,
+Payment: 0,
 };
 
-const app = express();
-const port = process.env.PORT || 3000;
-app.set('view engine', 'ejs');
 
-async function calculator(req: Request, res: Response) {
-  try {
-    const result = await Calc(req, true);
 
-    // Sending JSON response
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(403).send(err.message);
-  }
+const App = express();
+const Port = process.env.PORT || 3000;
+App.set('ViewEngine', 'ejs');
+
+type AnnuityArray = AnnuityArrayItem[];
+
+async function Calculator(req: Request, res: Response) {
+try {
+const Result = await Calc(req, true);
+res.setHeader('ContentType', 'application/json');
+res.status(200).json(Result);
+} catch (Err) {
+console.error(Err);
+res.status(403).send(Err.message);
+}
 }
 
-async function Calc(req: Request, schedule: boolean): Promise<{ answer: Answer | undefined; annuity: Annuity | undefined; error: Error | null }> {
-  const result: { answer: Answer | undefined; annuity: Annuity | undefined; error: Error | null } = {
-    answer: undefined,
-    annuity: undefined,
-    error: null,
-  };
+async function Calc(req: Request, Schedule: boolean): Promise<{ Answer: Answer | undefined; Annuity: Annuity | undefined; Error: Error | null }> {
+const Result: { Answer: Answer | undefined; Annuity: Annuity | undefined; Error: Error | null } = {
+Answer: undefined,
+Annuity: undefined,
+Error: null,
+};
 
-  if (req.headers['content-length'] === '0') {
-    result.error = new Error('Please send a request body');
-    return result;
-  }
-
-  const annuityResponse  = await NewAnnuity(req);
-  
-  if (!annuityResponse.error) {
-    const response2 = calcAnnuity(annuityResponse.annuity, schedule);
-    if(response2) {
-      result.answer = response2.answer;
-      result.error = response2.error;
-    }
-  }
-
-  return result;
+if (req.headers['ContentLength'] === '0') {
+Result.Error = new Error('Please send a request body');
+return Result;
 }
 
-async function NewAnnuity(req: Request): Promise<{ error: Error | null; annuity: Annuity | null }> {
-  let annuity: Annuity | null = null;
-  let error: Error | null = null;
+const AnnuityResponse = await NewAnnuity(req);
 
-  try {
-    const annuityBuffer: Uint8Array[] = [];
-    const readable = req.body as Readable;
-
-    for await (const chunk of readable) {
-      annuityBuffer.push(chunk);
-    }
-
-    const annuityData = Buffer.concat(annuityBuffer).toString('utf-8');
-    annuity = JSON.parse(annuityData);
-  } catch (err) {
-    error = err;
-  }
-
-  return { error, annuity };
+if (!AnnuityResponse.Error) {
+const Response2 = CalcAnnuity(AnnuityResponse.Annuity, Schedule);
+if(Response2) {
+    Result.Answer = Response2[0].Answer;
+    Result.Error = Response2[1];
+}
 }
 
-function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
-  let err = null;
-  const result = {'UnknownRow': 0, 'Answer': };
-  if(annuity) {
-    let aa = [];
-    
-      [aa, annuity.AsOf] = newCashflowArray(annuity.CashFlows, annuity.Compounding);
-      setStubs(aa, annuity);
-    
+return Result;
+}
 
-    if (annuity.Unknown) {
-      result.UnknownRow = -1;
-      [result.Answer, err] = amortizeRate(aa, annuity);
-      annuity.Effective = effective(result.Answer);
-    } else {
-      result.UnknownRow = getUnknownRow(annuity);
-      annuity.DailyRate = annuity.Nominal / 365;
-      [result.Answer, err] = amortizeCF(aa, annuity, result.UnknownRow);
+function GetAnnuityPV(AA: AnnuityArray, D: Date): number {
+for (let I = 0; I < AA.length; I++) {
+    if (AA[I].Date.getTime() === D.getTime() && AA[I].Kind === -1) {
+        return AA[I].Amount;
     }
+}
+return 0;
+}
 
-    if (err === null) {
-      result.PV = getAnnuityPV(aa, annuity.AsOf);
-      if (result.PV !== 0 && result.DCFpv === 0) {
-        result.DCFpv = estimatePV(aa, annuity.Effective);
-      }
+async function NewAnnuity(req: Request): Promise<{ Error: Error | null; Annuity: Annuity | null }> {
+let Annuity: Annuity | null = null;
+let Error: Error | null = null;
 
-      annuity.Aggregate = toFixed(aaAggregate(aa), 2);
-      result.WAL = calcWAL(aa, annuity.Aggregate);
+try {
+const AnnuityBuffer: Uint8Array[] = [];
+const Readable = req.body as Readable;
 
-      if (schedule) {
-        result.AmSchedule = createAmSchedule(result, aa, annuity, paymentCount(annuity.CashFlows));
-        result.YeValuations = yearEndSummary(aa, annuity, result);
-      }
-      result.TotalPayout = annuity.Aggregate;
-    }
-  }
-  return [result, err];
+for await (const Chunk of Readable) {
+    AnnuityBuffer.push(Chunk);
+}
+
+const AnnuityData = Buffer.concat(AnnuityBuffer).toString('utf-8');
+Annuity = JSON.parse(AnnuityData);
+} catch (Err) {
+Error = Err;
+}
+
+return { Error, Annuity };
 }
 
 type AnnuityArray = AnnuityArrayItem[];
 
-function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date] {
-  let pFreq: number, cfType: number, i: number;
-  let firstPaymentDate: Date, asOf: Date;
-  let sortRequired = false, asOfBool = false;
-  const aa: AnnuityArray = new Array<AnnuityArrayItem>(PaymentCount(pmts));
+function CalcAnnuity(Annuity: Annuity | null, Schedule: boolean | null) {
+let Err = null;
+const Result = {'UnknownRow': 0, 'Answer': null}; // The 'Answer' field was missing a value. I've added null for now, you can update as needed.
 
-  for (let row = 0; row < pmts.length; row++) {
-    const v = pmts[row];
-    firstPaymentDate = dateutils.ParseDateFromString(v.First);
-    let amount = v.Amount;
-    let tracker = amount;
+if(Annuity) {
+let Aa = [];
 
-    if (v.COLA !== 0 && v.ColaPeriods === 0) {
-      pmts[row].ColaPeriods = FreqMap[v.Frequency];
+[Aa, Annuity.AsOf] = NewCashflowArray(Annuity.CashFlows, Annuity.Compounding);
+SetStubs(Aa, Annuity);
+
+if (Annuity.Unknown) {
+    Result.UnknownRow = -1;
+    [Result.Answer, Err] = AmortizeRate(Aa, Annuity);
+    Annuity.Effective = Effective(Result.Answer);
+} else {
+    Result.UnknownRow = GetUnknownRow(Annuity);
+    Annuity.DailyRate = Annuity.Nominal / 365;
+    [Result.Answer, Err] = AmortizeCF(Aa, Annuity, Result.UnknownRow);
+}
+
+if (Err === null) {
+    Result.PV = GetAnnuityPV(Aa, Annuity.AsOf);
+    if (Result.PV !== 0 && Result.DCFpv === 0) {
+    Result.DCFpv = EstimatePV(Aa, Annuity.Effective);
     }
 
-    if (v.CfType === "Invest") {
-      cfType = -1;
-      if (!asOfBool) {
-        asOf = firstPaymentDate;
-        asOfBool = true;
-      }
+    Annuity.Aggregate = ToFixed(AaAggregate(Aa), 2);
+    Result.WAL = CalcWAL(Aa, Annuity.Aggregate);
+
+    if (Schedule) {
+    Result.AmSchedule = CreateAmSchedule(Result, Aa, Annuity, PaymentCount(Annuity.CashFlows));
+    Result.YeValuations = YearEndSummary(Aa, Annuity, Result);
+    }
+    Result.TotalPayout = Annuity.Aggregate;
+}
+}
+return [Result, Err];
+}
+
+function NewCashflowArray(Pmts: CashFlow[], Compounding: string): [AnnuityArray, Date] {
+let PFreq: number, CfType: number, I: number;
+let FirstPaymentDate: Date, AsOf: Date;
+let SortRequired = false, AsOfBool = false;
+const Aa: AnnuityArray = new Array<AnnuityArrayItem>(PaymentCount(Pmts));
+
+for (let Row = 0; Row < Pmts.length; Row++) {
+    const V = Pmts[Row];
+    FirstPaymentDate = dateutils.ParseDateFromString(V.First);
+    let Amount = V.Amount;
+    let Tracker = Amount;
+
+    if (V.COLA !== 0 && V.ColaPeriods === 0) {
+    Pmts[Row].ColaPeriods = FreqMap[V.Frequency];
+    }
+
+    if (V.CfType === "Invest") {
+    CfType = -1;
+    if (!AsOfBool) {
+        AsOf = FirstPaymentDate;
+        AsOfBool = true;
+    }
     } else {
-      cfType = 1;
+    CfType = 1;
     }
 
-    pFreq = FreqMap[v.Frequency] || FreqMap[compounding];
-    pFreq = 12 / pFreq;
-    const escrow = v.Escrow;
+    PFreq = FreqMap[V.Frequency] || FreqMap[Compounding];
+    PFreq = 12 / PFreq;
+    const Escrow = V.Escrow;
 
-    if (i > 0 && !sortRequired) {
-      sortRequired = dateutils.CompareDates(firstPaymentDate, aa[i - 1].Date);
+    if (I > 0 && !SortRequired) {
+    SortRequired = dateutils.CompareDates(FirstPaymentDate, Aa[I - 1].Date);
     }
 
-    for (let j = 0; j < v.Number; j++) {
-      aa[i] = {
-        RowID: row,
-        Date: dateutils.AddMonths(firstPaymentDate, j * pFreq),
-        Amount: amount,
-        Kind: cfType,
-        Escrow: escrow,
-        CaseCode: v.CaseCode,
-        Owner: v.Buyer,
-        PmtNmbr: i,
-        Freq: v.Frequency,
-      };
-      i++;
+    for (let J = 0; J < V.Number; J++) {
+    Aa[I] = {
+        RowID: Row,
+        Date: dateutils.AddMonths(FirstPaymentDate, J * PFreq),
+        Amount: Amount,
+        Kind: CfType,
+        Escrow: Escrow,
+        CaseCode: V.CaseCode,
+        Owner: V.Buyer,
+        PmtNmbr: I,
+        Freq: V.Frequency,
+    };
+    I++;
 
-      if ((j + 1) * pFreq % 12 === 0 && v.COLA !== 0 && j !== v.Number - 1) {
-        tracker *= 1.0 + v.COLA;
-        amount = ToFixed(tracker, 2); // Define ToFixed function as needed
-      }
+    if ((J + 1) * PFreq % 12 === 0 && V.COLA !== 0 && J !== V.Number - 1) {
+        Tracker *= 1.0 + V.COLA;
+        Amount = ToFixed(Tracker, 2); // Define ToFixed function as needed
     }
-  }
+    }
+}
 
-  if (sortRequired) {
-    aa.sort((a, b) => {
-      if (a.Date < b.Date) {
+if (SortRequired) {
+    Aa.sort((A, B) => {
+    if (A.Date < B.Date) {
         return -1;
-      } else if (a.Date > b.Date) {
+    } else if (A.Date > B.Date) {
         return 1;
-      } else {
-        return a.RowID - b.RowID;
-      }
-    });
-  }
-
-  return [aa, asOf];
-}
-
-
-// Assuming that dateutils.AddMonths is similar to date-fns's addMonths
-// and dateutils.DiffDays is similar to date-fns's differenceInDays
-
-function getInvestmentValue(annuity: Annuity): number {
-  for (let cashFlow of annuity.CashFlows) {
-    if (cashFlow.CfType === "Invest") {
-      return cashFlow.Amount;
-    }
-  }
-  return 0;
-}
-
-function lastPaymentDate(firstPaymentDate: Date, numberPmts: number, frequency: string): Date {
-  if (!FreqMap[frequency]) {
-    return firstPaymentDate;
-  }
-  return addMonths(firstPaymentDate, (numberPmts - 1) * (12 / FreqMap[frequency]));
-}
-
-function paymentCount(cfs: CashFlow[]): number {
-  return cfs.reduce((sum, cf) => sum + cf.Number, 0);
-}
-
-function stringifyWalTerm(r: Answer): [string, string] {
-  return [
-    r.term.toFixed(1),
-    r.wal.toFixed(1),
-  ];
-}
-
-function calcWAL(aa: AnnuityArrayItem[], start: Date): number {
-  let walAgg = 0;
-  let aggregate = 0;
-  for (let v of aa) {
-    if (v.Date < start) {
-      continue;
-    }
-    const dayDiff = differenceInDays(v.Date, start);
-    aggregate += v.Amount;
-    walAgg += dayDiff * v.Amount;
-  }
-  return toFixed(walAgg / aggregate / 365, 1);
-}
-
-function calcWALWithAggregate(aa: AnnuityArrayItem[], aggregate: number): number {
-  let walAgg = 0;
-  let dayDiff: number;
-  let walDate: Date | null = null;
-  for (let v of aa) {
-    if (v.Kind !== 1) {
-      if (!walDate) {
-        walDate = v.Date;
-      }
-      continue;
-    }
-
-    dayDiff = differenceInDays(v.Date, walDate!);
-    walAgg += dayDiff * v.Amount;
-  }
-  return toFixed(walAgg / aggregate / 365, 1);
-}
-
-function nominal(rate: number): number {
-  return 12.0 * (Math.pow(rate + 1.0, 1.0 / 12.0) - 1.0);
-}
-
-function effective(rate: number): number {
-  return Math.pow(1.0 + (rate / 12), 12) - 1;
-}
-
-function aaAggregate(aa: AnnuityArrayItem[]): number {
-  return aa.reduce((agg, v) => v.Kind === 1 ? agg + v.Amount : agg, 0);
-}
-
-function getInvestmentDate(aa: AnnuityArrayItem[]): Date {
-  for (let item of aa) {
-    if (item.Kind === -1) {
-      return item.Date;
-    }
-  }
-  return aa[aa.length - 1].Date;
-}
-
-function estimatePV(aa: AnnuityArrayItem[], rate: number): number {
-  let pvEstimate = 0;
-  const pvDate = getInvestmentDate(aa);
-  for (let i = 0; i < aa.length; i++) {
-    const v = aa[i];
-    if (pvDate.getTime() === v.Date.getTime() && v.Kind === -1) {
-      continue;
     } else {
-      const period = v.dcfStubPeriods + (v.dcfStubDays / 365 * 12);
-      aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
-      aa[i].DCF = toFixed(aa[i].DiscountFactor * aa[i].Amount, 2);
-      pvEstimate += aa[i].DCF;
+        return A.RowID - B.RowID;
     }
-  }
-  return pvEstimate;
+    });
 }
 
-function amortize(aa: AnnuityArrayItem[], annuity: Annuity): number {
-  let interest: number = 0;
-  let balance: number = 0;
-
-  for (const v of aa) {
-    interest = v.stubDays * annuity.DailyRate * balance;
-    balance += interest;
-    balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods);
-    balance -= v.Amount * v.Kind;
-  }
-
-  return balance;
+return [Aa, AsOf];
 }
-type deferralData = {
-  pvDate: Date;
-  from: Date;
-  to: Date;
-  compoundFreq: number;
-  paymentFreq: number;
+function GetInvestmentValue(Annuity: Annuity): number {
+for (let CashFlow of Annuity.CashFlows) {
+if (CashFlow.CfType === "Invest") {
+    return CashFlow.Amount;
+}
+}
+return 0;
+}
+
+function LastPaymentDate(FirstPaymentDate: Date, NumberPmts: number, Frequency: string): Date {
+if (!FreqMap[Frequency]) {
+return FirstPaymentDate;
+}
+return AddMonths(FirstPaymentDate, (NumberPmts - 1) * (12 / FreqMap[Frequency]));
+}
+
+function PaymentCount(Cfs: CashFlow[]): number {
+return Cfs.reduce((Sum, Cf) => Sum + Cf.Number, 0);
+}
+
+function StringifyWalTerm(R: Answer): [string, string] {
+return [
+R.Term.ToFixed(1),
+R.Wal.ToFixed(1),
+];
+}
+
+function CalcWAL(Aa: AnnuityArrayItem[], Start: Date): number {
+let WalAgg = 0;
+let Aggregate = 0;
+for (let V of Aa) {
+if (V.Date < Start) {
+    continue;
+}
+const DayDiff = DifferenceInDays(V.Date, Start);
+Aggregate += V.Amount;
+WalAgg += DayDiff * V.Amount;
+}
+return ToFixed(WalAgg / Aggregate / 365, 1);
+}
+
+function CalcWALWithAggregate(Aa: AnnuityArrayItem[], Aggregate: number): number {
+let WalAgg = 0;
+let DayDiff: number;
+let WalDate: Date | null = null;
+for (let V of Aa) {
+    if (V.Kind !== 1) {
+    if (!WalDate) {
+        WalDate = V.Date;
+    }
+    continue;
+    }
+    DayDiff = DifferenceInDays(V.Date, WalDate!);
+    WalAgg += DayDiff * V.Amount;
+}
+return ToFixed(WalAgg / Aggregate / 365, 1);
+}
+
+function Nominal(Rate: number): number {
+return 12.0 * (Math.pow(Rate + 1.0, 1.0 / 12.0) - 1.0);
+}
+
+function Effective(Rate: number): number {
+return Math.pow(1.0 + (Rate / 12), 12) - 1;
+}
+
+function AaAggregate(Aa: AnnuityArrayItem[]): number {
+return Aa.reduce((Agg, V) => V.Kind === 1 ? Agg + V.Amount : Agg, 0);
+}
+
+function GetInvestmentDate(Aa: AnnuityArrayItem[]): Date {
+for (let Item of Aa) {
+    if (Item.Kind === -1) {
+    return Item.Date;
+    }
+}
+return Aa[Aa.length - 1].Date;
+}
+
+function EstimatePV(Aa: AnnuityArrayItem[], Rate: number): number {
+let PvEstimate = 0;
+const PvDate = GetInvestmentDate(Aa);
+for (let I = 0; I < Aa.length; I++) {
+    const V = Aa[I];
+    if (PvDate.getTime() === V.Date.getTime() && V.Kind === -1) {
+    continue;
+    } else {
+    const Period = V.DcfStubPeriods + (V.DcfStubDays / 365 * 12);
+    Aa[I].DiscountFactor = (1 / Math.pow(1 + Rate, Period / 12)) * V.Kind;
+    Aa[I].DCF = ToFixed(Aa[I].DiscountFactor * Aa[I].Amount, 2);
+    PvEstimate += Aa[I].DCF;
+    }
+}
+return PvEstimate;
+}
+
+function Amortize(Aa: AnnuityArrayItem[], Annuity: Annuity): number {
+let Interest: number = 0;
+let Balance: number = 0;
+
+for (const V of Aa) {
+    Interest = V.StubDays * Annuity.DailyRate * Balance;
+    Balance += Interest;
+    Balance *= Math.pow(1 + Annuity.Nominal / FreqMap[Annuity.Compounding], V.StubPeriods);
+    Balance -= V.Amount * V.Kind;
+}
+
+return Balance;
+}
+
+function SetStubs(Aa: AnnuityArrayItem[], Annuity: Annuity): void {
+const Compounding: number = 12 / FreqMap[Annuity.Compounding];
+let PayPeriod: number;
+
+const Data: DeferralData = {
+    PvDate: Aa[0].Date,
+    From: Aa[0].Date,
+    To: Aa[0].Date,
+    CompoundFreq: Compounding,
+    PaymentFreq: 1,
 };
 
-function setStubs(aa: AnnuityArrayItem[], annuity: Annuity): void {
-  const compounding: number = 12 / FreqMap[annuity.Compounding];
-  let payPeriod: number;
-
-  const data: deferralData = {
-      pvDate: aa[0].Date,
-      from: aa[0].Date,
-      to: aa[0].Date,
-      compoundFreq: compounding,
-      paymentFreq: 1,
-  };
-
-  for (let i = 0; i < aa.length; i++) {
-      const v = aa[i];
-      if (i === 0 || aa[0].Date === v.Date) {
-          // Assuming that `stubDays`, `stubPeriods`, `dcfStubDays`, `dcfStubPeriods` are properties of `AnnuityArrayItem`
-          // If not, you need to adjust this part accordingly.
-          aa[i].stubDays = aa[i].stubPeriods = aa[i].dcfStubDays = aa[i].dcfStubPeriods = 0;
-          continue;
-      }
-
-      data.from = aa[i - 1].Date;
-      data.to = v.Date;
-      data.paymentFreq = FreqMap[annuity.CashFlows[v.RowID].Frequency] || 0;
-      if (data.paymentFreq !== 0) {
-          data.paymentFreq = 12 / data.paymentFreq;
-      } else {
-          data.paymentFreq = 1;
-      }
-
-      if (v.RowID === aa[i - 1].RowID) {
-          payPeriod = data.paymentFreq / data.compoundFreq;
-          aa[i].stubDays = 0;
-          aa[i].stubPeriods = payPeriod;
-      } else {
-          [aa[i].stubDays, aa[i].stubPeriods] = createStubs(data);
-      }
-
-      data.from = data.pvDate;
-      [aa[i].dcfStubDays, aa[i].dcfStubPeriods] = createStubs(data);
-  }
-}
-
-function createStubs(data: deferralData): [number, number] {
-  let countMonths = data.to.getMonth() - data.from.getMonth() + (12 * (data.to.getFullYear() - data.from.getFullYear()));
-  if (countMonths !== 0) {
-      if (data.to.getDate() < data.from.getDate()) {
-          countMonths--;
-          if (data.to.getDate() === dateutils.DaysInMonth(data.to.getFullYear(), data.to.getMonth())) {
-              countMonths++;
-          }
-      }
-  }
-  const countPeriods = Math.floor(countMonths / data.compoundFreq);
-  const dt = dateutils.AddMonths(data.to, -countPeriods * data.compoundFreq);
-  const stubDays = dateutils.DiffDays(dt, data.from);
-  return [stubDays, countPeriods];
-}
-
-async function amortizeRate(aa: AnnuityArray, annuity: Annuity): Promise<[number, Error | null]> {
-  let guess = 0, balance = 0, min = -1, max = 1;
-  while (max - min > 0.0000001) {
-      guess = (min + max) / 2;
-      if (min > 0.99999 || max < -0.99999) {
-          return [0, new Error(`interest rate out of range error with guessed rate = ${guess} and annuity pv = ${annuity.CashFlows[0].Amount}`)];
-      }
-      annuity.Nominal = guess;
-      annuity.DailyRate = annuity.Nominal / 365;
-      balance = amortize(aa, annuity);
-      if (balance > 0) {
-          max = guess;
-      } else {
-          min = guess;
-      }
-  }
-  return [guess, null];
-}
-
-async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number): Promise<[number, Error | null]> {
-  let guess = 0, floor = -10000000, ceiling = 10000000, iterations = 0;
-  let min: number, max: number;
-  if (annuity.CashFlows[unknownRow].CfType === "Invest") {
-      annuity.EstimateDCF = estimatePV(aa, annuity.Effective);
-      min = annuity.EstimateDCF - (annuity.EstimateDCF * 0.009);
-      max = annuity.EstimateDCF + (annuity.EstimateDCF * 0.009);
-      console.log("Estimated NPV for", annuity.DCFCode, annuity.EstimateDCF, "Rate:", annuity.Effective, min, max);
-  } else {
-      min = floor;
-      max = ceiling;
-  }
-  while (max - min > 0.001) {
-      iterations++;
-      guess = (min + max) / 2;
-      if (max < floor + 0.01 || min > ceiling - 0.01) {
-          return [0, new Error("ERROR - the cash flow has iterated beyond the max/min range - check that your variables are correct")];
-      }
-      updateAnnuity(aa, guess, annuity, unknownRow);
-      balance = amortize(aa, annuity);
-      if ((annuity.CashFlows[unknownRow].CfType === "Invest" && balance < 0) || (annuity.CashFlows[unknownRow].CfType !== "Invest" && balance > 0)) {
-          min = guess;
-      } else {
-          max = guess;
-      }
-  }
-  console.log("Number of iterations:", iterations);
-  if (annuity.CashFlows[unknownRow].COLA !== 0) {
-      updateAnnuity(aa, toFixed(guess, 2), annuity, unknownRow);
-  }
-  return [toFixed(guess, 2), null];
-}
-
-function amortize(aa: AnnuityArray, annuity: Annuity): number {
-  let interest = 0, balance = 0;
-  for (const v of aa) {
-      interest = v.stubDays * annuity.DailyRate * balance;
-      balance += interest;
-      balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods);
-      balance -= v.Amount * v.Kind;
-  }
-  return balance;
-}
-
-function updateAnnuity(aa: AnnuityArray, guess: number, annuity: Annuity, row: number) {
-  let paymentsRemaining = annuity.CashFlows[row].Number;
-  for (let i = 0; i < aa.length; i++) {
-      if (aa[i].RowID === row) {
-          const paymentsIndex = annuity.CashFlows[row].Number - paymentsRemaining;
-          if (annuity.CashFlows[row].COLA !== 0 && paymentsIndex > 0 && paymentsIndex % annuity.CashFlows[row].ColaPeriods === 0) {
-              guess *= 1 + annuity.CashFlows[row].COLA;
-          }
-          aa[i].Amount = guess;
-          paymentsRemaining--;
-          if (paymentsRemaining === 0) {
-              break;
-          }
-      }
-  }
-}
-
-function getUnknownRow(annuity: Annuity): number {
-  for (let row = 0; row < annuity.CashFlows.length; row++) {
-      if (annuity.CashFlows[row].Unknown) {
-          return row;
-      }
-  }
-  console.error("No unknown cashflow error!");
-  return -1;
-}
-
-function round(num: number): number {
-  return Math.floor(num + 0.5);
-}
-
-function toFixed(num: number, precision: number): number {
-  const output = Math.pow(10, precision);
-  return round(num * output) / output;
-}
-
-interface Answer {
-  AmSchedule: Schedule[];
-  HWMark: number;
-  DCFRounding: number;
-  DCFpv: number;
-  PV: number;
-  HWMarkDate: string;
-  //... any other properties that Answer may have
-}
-
-interface Schedule {
-  Date: string;
-  Payment: number;
-  Type: string;
-  DCFInterest: number;
-  DCFPrincipal: number;
-  Principal?: number;
-  Interest?: number;
-  Balance?: number;
-}
-
-interface ScheduleData {
-  balance?: number;
-  accruedInterest?: number;
-  principal?: number;
-  //... any other properties that scheduleData may have
-}
-
-function CreateAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, sum: number): Schedule[] {
-  result.AmSchedule = new Array<Schedule>(sum);
-  result.HWMark = 0;
-  result.DCFRounding = result.DCFpv - result.PV;
-
-  for (let i = 0; i < aa.length; i++) {
-      result.AmSchedule[i] = schedRow(aa, i, annuity, result);
-  }
-
-  const lastElement = result.AmSchedule.length - 1;
-
-  if (result.HWMarkDate === result.AmSchedule[lastElement].Date) {
-      result.HWMark = result.AmSchedule[lastElement].Payment;
-  }
-
-  result.Rounding = result.AmSchedule[lastElement].Balance!;
-  result.AmSchedule[lastElement].Interest! -= result.Rounding;
-  result.AmSchedule[lastElement].Principal! += result.Rounding;
-  result.AmSchedule[lastElement].Balance = 0;
-
-  roundFirstDCFPayment(result, annuity);
-  // dcfBalances(result); // If you have this function, you can uncomment this
-
-  result.AmSchedule = insertSchedTotals(result); // Assuming you have this function somewhere
-
-  annuity.Aggregate = result.AmSchedule[result.AmSchedule.length - 1].Payment;
-
-  return result.AmSchedule;
-}
-
-function roundFirstDCFPayment(result: Answer, annuity: Annuity): void {
-  for (let i = 0; i < result.AmSchedule.length; i++) {
-      const d = new Date(result.AmSchedule[i].Date);
-
-      if (result.AmSchedule[i].Type === "Return" && d.getTime() !== annuity.AsOf.getTime()) {
-          result.AmSchedule[i].DCFPrincipal! += ToFixed(result.PV - result.DCFpv, 2);
-          result.AmSchedule[i].DCFInterest! -= ToFixed(result.PV - result.DCFpv, 2);
-          break;
-      }
-  }
-}
-
-function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Answer): Schedule {
-  const data: ScheduleData = {};
-  const AnnuityArrayAtIndex = aa[index];
-
-  if (index === 0) {
-      return data.amSchedReturnVals(AnnuityArrayAtIndex, index);
-  }
-
-  const previousBalance = result.AmSchedule[index - 1].Balance!;
-  const stubInterest = AnnuityArrayAtIndex.stubDays * annuity.DailyRate * previousBalance;
-
-  data.balance = stubInterest + previousBalance;
-  data.balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], AnnuityArrayAtIndex.stubPeriods);
-
-  if (result.HWMark < data.balance!) {
-      result.HWMark = data.balance!;
-      result.HWMarkDate = (new Date(AnnuityArrayAtIndex.Date)).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit', year: 'numeric' });
-  }
-
-  data.accruedInterest = data.balance! - previousBalance;
-  data.balance -= AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind;
-  data.balance = ToFixed(data.balance!, 2);
-
-  data.principal = ToFixed(previousBalance - data.balance!, 2);
-  return data.amSchedReturnVals(AnnuityArrayAtIndex, index);
-}
-
-ScheduleData.prototype.amSchedReturnVals = function(this: ScheduleData, AnnuityArrayAtIndex: CfArray, index: number): Schedule {
-  const s: Schedule = {
-      Date: (new Date(AnnuityArrayAtIndex.Date)).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit', year: 'numeric' }),
-      Payment: AnnuityArrayAtIndex.Amount
-  };
-
-  if (AnnuityArrayAtIndex.Kind === 1) {
-      s.Type = "Return";
-      s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF, 2);
-      s.DCFPrincipal = AnnuityArrayAtIndex.DCF;
-
-      if (index === 0) {
-          this.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
-      } else {
-          s.Principal = this.principal!;
-          s.Interest = AnnuityArrayAtIndex.Amount - this.principal!;
-      }
-
-  } else {
-      s.Type = "Invest";
-
-      if (index === 0) {
-          this.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
-          s.DCFPrincipal = AnnuityArrayAtIndex.Amount;
-      } else {
-          s.Interest = this.accruedInterest!;
-          s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF, 2);
-      }
-  }
-
-  s.Balance = this.balance;
-  return s;
-}
-
-
-
-function insertSchedTotals(result: Answer): Schedule[] {
-  const empty: Schedule = {};
-  let i: number = 0;
-  let year: string = result.AmSchedule[0].Date.slice(-4);
-
-  interface Total {
-      payments: number;
-      interest: number;
-      dcfPayments: number;
-      dcfInterest: number;
-      totalPayments: number;
-      totalInterest: number;
-      totalDCFPayments: number;
-      totalDCFInterest: number;
-  }
-
-  const totals: Total = {
-      payments: 0,
-      interest: 0,
-      dcfPayments: 0,
-      dcfInterest: 0,
-      totalPayments: 0,
-      totalInterest: 0,
-      totalDCFPayments: 0,
-      totalDCFInterest: 0
-  };
-
-  const insertTotals = (): Schedule => ({
-      Type: year + " Totals",
-      Date: "",
-      Payment: totals.payments,
-      Principal: totals.payments - totals.interest,
-      Interest: totals.interest,
-      DCFPrincipal: totals.payments - totals.dcfInterest,
-      DCFInterest: totals.dcfInterest,
-  });
-
-  for (i = 0; i < result.AmSchedule.length; i++) {
-      if (year !== result.AmSchedule[i].Date.slice(-4)) {
-          result.AmSchedule.splice(i, 0, empty);
-          result.AmSchedule[i] = insertTotals();
-          totals.payments = 0;
-          totals.interest = 0;
-          totals.dcfPayments = 0;
-          totals.dcfInterest = 0;
-          year = result.AmSchedule[i + 1].Date.slice(-4);
-      } else {
-          if (result.AmSchedule[i].Type === "Return") {
-              totals.payments += toFixed(result.AmSchedule[i].Payment, 2);
-              totals.interest += toFixed(result.AmSchedule[i].Interest, 2);
-              totals.dcfInterest += toFixed(result.AmSchedule[i].DCFInterest, 2);
-              totals.totalDCFInterest += toFixed(result.AmSchedule[i].DCFInterest, 2);
-              totals.totalPayments += toFixed(result.AmSchedule[i].Payment, 2);
-              totals.totalInterest += toFixed(result.AmSchedule[i].Interest, 2);
-          }
-      }
-  }
-
-  result.AmSchedule.push(insertTotals());
-  result.AmSchedule.push({
-      Type: "Grand Totals",
-      Date: "",
-      Payment: totals.totalPayments,
-      Principal: totals.totalPayments - totals.totalInterest,
-      Interest: totals.totalInterest,
-      DCFPrincipal: totals.totalPayments - totals.totalDCFInterest,
-      DCFInterest: totals.totalDCFInterest,
-  });
-
-  return result.AmSchedule;
-}
-
-function amortizeYE(c: AnnuityArray, annuity: Annuity) {
-  let min: number = -100000000;
-  let max: number = 100000000;
-
-  while (max - min > 0.0001) {
-      c[0].Amount = (min + max) / 2;
-      let balance: number = amortize(c, annuity);
-      if (balance > 0) {
-          max = c[0].Amount;
-      } else {
-          min = c[0].Amount;
-      }
-  }
-}
-
-// Continuing with other functions ...
-
-export function YearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
-    result.IsAmSchedule = annuity.UseAmSchedule;
-    const finalPaymentDate = aa[aa.length - 1].Date;
-    const finalYear = finalPaymentDate.getFullYear();
-    const compounding = 12 / FreqMap[annuity.Compounding];
-    const ye: YearEnd[] = new Array(finalYear - aa[0].Date.getFullYear() + 1);
-    const c: CfArray[] = [...aa];
-    let pFreq = 0;
-    let yeIndex = 0;
-    let aggregate = 0;
-    let cumulativeAgg = 0;
-    const startYear = aa[0].Date.getFullYear();
-
-    if (startYear === finalYear) {
-        return [{
-            Date: finalYear.toString(),
-            Value: 0,
-            Aggregate: aaAggregate(aa),
-            YearlyInterest: getDCFYearlyInterest(startYear, result),
-            YearlyCumulative: aggregate
-        }];
+for (let I = 0; I < Aa.length; I++) {
+    const V = Aa[I];
+    if (I === 0 || Aa[0].Date === V.Date) {
+        Aa[I].StubDays = Aa[I].StubPeriods = Aa[I].DcfStubDays = Aa[I].DcfStubPeriods = 0;
+        continue;
     }
 
-    for (let thisYear = startYear; thisYear < finalYear; thisYear++) {
-        [c, aggregate, cumulativeAgg, yeIndex] = annuity.getYearEndValues(finalPaymentDate, c, aggregate, cumulativeAgg, thisYear, pFreq, compounding, yeIndex, startYear, ye, result);
-        cumulativeAgg += aggregate;
+    Data.From = Aa[I - 1].Date;
+    Data.To = V.Date;
+    Data.PaymentFreq = FreqMap[Annuity.CashFlows[V.RowID].Frequency] || 0;
+    if (Data.PaymentFreq !== 0) {
+        Data.PaymentFreq = 12 / Data.PaymentFreq;
+    } else {
+        Data.PaymentFreq = 1;
     }
 
-    for (let i = 0; i < c.length; i++) {
-        if (c[i].Kind !== -1) {
-            aggregate += c[i].Amount;
-        }
+    if (V.RowID === Aa[I - 1].RowID) {
+        PayPeriod = Data.PaymentFreq / Data.CompoundFreq;
+        Aa[I].StubDays = 0;
+        Aa[I].StubPeriods = PayPeriod;
+    } else {
+        [Aa[I].StubDays, Aa[I].StubPeriods] = CreateStubs(Data);
     }
 
-    ye[yeIndex + 1] = {
-        Date: finalYear.toString(),
-        Value: 0,
-        Aggregate: aggregate,
-        YearlyInterest: getDCFYearlyInterest(finalYear, result),
-        YearlyCumulative: cumulativeAgg + aggregate
-    };
-
-    return ye;
+    Data.From = Data.PvDate;
+    [Aa[I].DcfStubDays, Aa[I].DcfStubPeriods] = CreateStubs(Data);
+}
 }
 
-Annuity.prototype.getYearEndValues = function(finalPaymentDate: Date, c: CfArray[], aggregate: number, cumulative: number, thisYear: number, pFreq: number, compounding: number, yeIndex: number, startYear: number, ye: YearEnd[], result: Answer): [CfArray[], number, number, number] {
-    const yeStartDate = parse(`12/31/${thisYear}`, 'MM/dd/yyyy', new Date());
-
-    if (yeStartDate < finalPaymentDate) {
-        for (let i = 0; i < c.length; i++) {
-            if (c[i + 1].Date < yeStartDate) {
-                if (c[i + 1].Kind !== -1) {
-                    aggregate += c[i + 1].Amount;
-                }
-                c[i] = null!;
-                continue;
+function CreateStubs(Data: DeferralData): [number, number] {
+    let CountMonths = Data.To.getMonth() - Data.From.getMonth() + (12 * (Data.To.getFullYear() - Data.From.getFullYear()));
+    if (CountMonths !== 0) {
+        if (Data.To.getDate() < Data.From.getDate()) {
+            CountMonths--;
+            if (Data.To.getDate() === Dateutils.DaysInMonth(Data.To.getFullYear(), Data.To.getMonth())) {
+                CountMonths++;
             }
-            c.splice(0, i + 1, {
-                Date: yeStartDate,
-                Amount: 0,
-                Kind: -1,
-                stubPeriods: 0,
-                stubDays: 0
-            });
-            break;
-        }
-        cumulative += aggregate;
-        pFreq = FreqMap[this.CashFlows[c[1].RowID].Frequency];
-
-        if (pFreq !== 0) {
-            pFreq = 12 / pFreq;
-        } else {
-            pFreq = compounding;
-        }
-
-        const deferral = {
-            from: c[0].Date,
-            to: c[1].Date,
-            compoundFreq: compounding,
-            paymentFreq: pFreq
-        };
-
-        [c[1].stubDays, c[1].stubPeriods] = createStubs(deferral);
-
-        amortizeYE(c, this);
-
-        yeIndex = yeStartDate.getFullYear() - startYear;
-        ye[yeIndex] = {
-            Date: thisYear.toString(),
-            Value: c[0].Amount,
-            Aggregate: aggregate,
-            YearlyInterest: getDCFYearlyInterest(thisYear, result),
-            YearlyCumulative: cumulative
-        };
-        aggregate = 0;
-    }
-
-    return [c, aggregate, cumulative, yeIndex];
-}
-
-function getDCFYearlyInterest(year: number, result: Answer): number {
-    const y = year.toString();
-    for (const item of result.AmSchedule) {
-        if (item.Type.indexOf(y) > -1) {
-            return result.IsAmSchedule ? item.Interest : item.DCFInterest;
         }
     }
-    return 0;
-}
-
-
-
-function aggregate(frequency: string, numberPmts: number, amount: number, cola: number): number {
-  if (cola !== 0 && FreqMap[frequency] !== 0) {
-      let aggregate: number = 0;
-      const colaPeriods: number = FreqMap[frequency];
-      let tracker: number = amount;
-      for (let i = 0; i < numberPmts; i++) {
-          aggregate += amount;
-          if ((i + 1) % colaPeriods === 0 && (i + 1) < numberPmts) {
-              tracker *= 1 + cola;
-              amount = toFixed(tracker, 2);
-          }
-      }
-      return toFixed(aggregate, 2);
+    const CountPeriods = Math.floor(CountMonths / Data.CompoundFreq);
+    const Dt = Dateutils.AddMonths(Data.To, -CountPeriods * Data.CompoundFreq);
+    const StubDays = Dateutils.DiffDays(Dt, Data.From);
+    return [StubDays, CountPeriods];
   }
-  return toFixed(numberPmts * amount, 2);
-}
-
-
-
-app.set('views', path.join(__dirname, 'views'));
-app.get('/', (req: Request, res: Response) => {
-  res.render('index')
-});
-app.post('/calculator', (req: Request, res: Response) => {
-  console.log(req.body)
   
-  res.render('index')
-});
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
-console.log(greet('John'));
+  async function AmortizeRate(Aa: AnnuityArray, Annuity: Annuity): Promise<[number, Error | null]> {
+    let Guess = 0, Balance = 0, Min = -1, Max = 1;
+    while (Max - Min > 0.0000001) {
+        Guess = (Min + Max) / 2;
+        if (Min > 0.99999 || Max < -0.99999) {
+            return [0, new Error(`Interest rate out of range error with guessed rate = ${Guess} and annuity pv = ${Annuity.CashFlows[0].Amount}`)];
+        }
+        Annuity.Nominal = Guess;
+        Annuity.DailyRate = Annuity.Nominal / 365;
+        Balance = Amortize(Aa, Annuity);
+        if (Balance > 0) {
+            Max = Guess;
+        } else {
+            Min = Guess;
+        }
+    }
+    return [Guess, null];
+  }
+  
+  async function AmortizeCF(Aa: AnnuityArray, Annuity: Annuity, UnknownRow: number): Promise<[number, Error | null]> {
+    let Guess = 0, Floor = -10000000, Ceiling = 10000000, Iterations = 0;
+    let Min: number, Max: number;
+    if (Annuity.CashFlows[UnknownRow].CfType === "Invest") {
+        Annuity.EstimateDCF = EstimatePV(Aa, Annuity.Effective);
+        Min = Annuity.EstimateDCF - (Annuity.EstimateDCF * 0.009);
+        Max = Annuity.EstimateDCF + (Annuity.EstimateDCF * 0.009);
+        console.log("Estimated NPV for", Annuity.DCFCode, Annuity.EstimateDCF, "Rate:", Annuity.Effective, Min, Max);
+    } else {
+        Min = Floor;
+        Max = Ceiling;
+    }
+    while (Max - Min > 0.001) {
+        Iterations++;
+        Guess = (Min + Max) / 2;
+        if (Max < Floor + 0.01 || Min > Ceiling - 0.01) {
+            return [0, new Error("ERROR - the cash flow has iterated beyond the max/min range - check that your variables are correct")];
+        }
+        UpdateAnnuity(Aa, Guess, Annuity, UnknownRow);
+        Balance = Amortize(Aa, Annuity);
+        if ((Annuity.CashFlows[UnknownRow].CfType === "Invest" && Balance < 0) || (Annuity.CashFlows[UnknownRow].CfType !== "Invest" && Balance > 0)) {
+            Min = Guess;
+        } else {
+            Max = Guess;
+        }
+    }
+    console.log("Number of iterations:", Iterations);
+    if (Annuity.CashFlows[UnknownRow].COLA !== 0) {
+        UpdateAnnuity(Aa, ToFixed(Guess, 2), Annuity, UnknownRow);
+    }
+    return [ToFixed(Guess, 2), null];
+  }
+  
