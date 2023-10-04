@@ -1,15 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calculator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
 </head>
 <body>
-  <form action="/calculator" method="POST">
-    <input type="text" name="months">
-    <input type="text" name="monthly_fee">
-    <button type="submit"></button>
-  </form>
+    <form action="/calculator" method="POST">
+        <label for="number_of_payments">Number of Payments:</label>
+        <input type="number" name="number_of_payments" id="number_of_payments" required><br><br>
+        
+        <label for="frequency">Frequency:</label>
+        <select name="frequency" id="frequency">
+            <option value="Monthly">Monthly</option>
+            <!-- Add other frequency options as needed -->
+        </select><br><br>
+        
+        <label for="amount">Amount:</label>
+        <input type="text" name="amount" id="amount" placeholder="$1,400.00" required><br><br>
+        
+        <label for="start_date">Start Date:</label>
+        <input type="date" name="start_date" id="start_date" required><br><br>
+        
+        <label for="increase">Increase (in percentage):</label>
+        <input type="text" name="increase" id="increase" placeholder="0.00%" required><br><br>
+        
+        <button type="submit">Submit</button>
+    </form>
+
+    <!-- Assuming a response object is sent back with the form's data -->
+    <% if (typeof response !== 'undefined') { %>
+    <h3>Response</h3>
+    <p><strong>Number of Pmts:</strong> <%= response.number_of_payments %></p>
+    <p><strong>Frequency:</strong> <%= response.frequency %></p>
+    <p><strong>Amount:</strong> <%= response.amount %></p>
+    <p><strong>Start Date:</strong> <%= response.start_date %></p>
+    <p><strong>Increase:</strong> <%= response.increase %></p>
+    <% } %>
+
 </body>
 </html>
