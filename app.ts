@@ -144,7 +144,7 @@ async function calculator(req: Request, res: Response) {
     // Sending JSON response
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: Error | null) {
     console.error(err);
     res.status(403).send(err.message);
   }
@@ -189,7 +189,7 @@ async function NewAnnuity(req: Request): Promise<{ error: Error | null; annuity:
 
     const annuityData = Buffer.concat(annuityBuffer).toString('utf-8');
     annuity = JSON.parse(annuityData);
-  } catch (err) {
+  } catch (err: Error | null) {
     error = err;
   }
 
@@ -208,12 +208,12 @@ function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
 
     if (annuity.Unknown) {
       result.UnknownRow = -1;
-      [result.Answer, err] = amortizeRate(aa, annuity);
+      [result.Answer, err] = await amortizeRate(aa, annuity);
       annuity.Effective = effective(result.Answer);
     } else {
       result.UnknownRow = getUnknownRow(annuity);
       annuity.DailyRate = annuity.Nominal / 365;
-      [result.Answer, err] = amortizeCF(aa, annuity, result.UnknownRow);
+      [result.Answer, err] = await amortizeCF(aa, annuity, result.UnknownRow);
     }
 
     if (err === null) {
@@ -222,7 +222,7 @@ function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
         result.DCFpv = estimatePV(aa, annuity.Effective);
       }
 
-      annuity.Aggregate = toFixed(aaAggregate(aa), 2);
+      annuity.Aggregate = ToFixed(aaAggregate(aa), 2);
       result.WAL = calcWAL(aa, annuity.Aggregate);
 
       if (schedule) {
@@ -333,8 +333,8 @@ function paymentCount(cfs: CashFlow[]): number {
 
 function stringifyWalTerm(r: Answer): [string, string] {
   return [
-    r.term.toFixed(1),
-    r.wal.toFixed(1),
+    r.term.ToFixed(1),
+    r.wal.ToFixed(1),
   ];
 }
 
@@ -349,7 +349,7 @@ function calcWAL(aa: AnnuityArrayItem[], start: Date): number {
     aggregate += v.Amount;
     walAgg += dayDiff * v.Amount;
   }
-  return toFixed(walAgg / aggregate / 365, 1);
+  return ToFixed(walAgg / aggregate / 365, 1);
 }
 
 function calcWALWithAggregate(aa: AnnuityArrayItem[], aggregate: number): number {
@@ -367,7 +367,7 @@ function calcWALWithAggregate(aa: AnnuityArrayItem[], aggregate: number): number
     dayDiff = differenceInDays(v.Date, walDate!);
     walAgg += dayDiff * v.Amount;
   }
-  return toFixed(walAgg / aggregate / 365, 1);
+  return ToFixed(walAgg / aggregate / 365, 1);
 }
 
 function nominal(rate: number): number {
@@ -401,7 +401,7 @@ function estimatePV(aa: AnnuityArrayItem[], rate: number): number {
     } else {
       const period = v.dcfStubPeriods + (v.dcfStubDays / 365 * 12);
       aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
-      aa[i].DCF = toFixed(aa[i].DiscountFactor * aa[i].Amount, 2);
+      aa[i].DCF = ToFixed(aa[i].DiscountFactor * aa[i].Amount, 2);
       pvEstimate += aa[i].DCF;
     }
   }
@@ -535,9 +535,9 @@ async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number
   }
   console.log("Number of iterations:", iterations);
   if (annuity.CashFlows[unknownRow].COLA !== 0) {
-      updateAnnuity(aa, toFixed(guess, 2), annuity, unknownRow);
+      updateAnnuity(aa, ToFixed(guess, 2), annuity, unknownRow);
   }
-  return [toFixed(guess, 2), null];
+  return [ToFixed(guess, 2), null];
 }
 
 function amortize(aa: AnnuityArray, annuity: Annuity): number {
@@ -582,7 +582,7 @@ function round(num: number): number {
   return Math.floor(num + 0.5);
 }
 
-function toFixed(num: number, precision: number): number {
+function ToFixed(num: number, precision: number): number {
   const output = Math.pow(10, precision);
   return round(num * output) / output;
 }
@@ -770,12 +770,12 @@ function insertSchedTotals(result: Answer): Schedule[] {
           year = result.AmSchedule[i + 1].Date.slice(-4);
       } else {
           if (result.AmSchedule[i].Type === "Return") {
-              totals.payments += toFixed(result.AmSchedule[i].Payment, 2);
-              totals.interest += toFixed(result.AmSchedule[i].Interest, 2);
-              totals.dcfInterest += toFixed(result.AmSchedule[i].DCFInterest, 2);
-              totals.totalDCFInterest += toFixed(result.AmSchedule[i].DCFInterest, 2);
-              totals.totalPayments += toFixed(result.AmSchedule[i].Payment, 2);
-              totals.totalInterest += toFixed(result.AmSchedule[i].Interest, 2);
+              totals.payments += ToFixed(result.AmSchedule[i].Payment, 2);
+              totals.interest += ToFixed(result.AmSchedule[i].Interest, 2);
+              totals.dcfInterest += ToFixed(result.AmSchedule[i].DCFInterest, 2);
+              totals.totalDCFInterest += ToFixed(result.AmSchedule[i].DCFInterest, 2);
+              totals.totalPayments += ToFixed(result.AmSchedule[i].Payment, 2);
+              totals.totalInterest += ToFixed(result.AmSchedule[i].Interest, 2);
           }
       }
   }
@@ -923,7 +923,7 @@ function getDCFYearlyInterest(year: number, result: Answer): number {
 }
 
 
-// Assuming you've already defined `FreqMap` and `toFixed` function in TypeScript.
+// Assuming you've already defined `FreqMap` and `ToFixed` function in TypeScript.
 
 function aggregate(frequency: string, numberPmts: number, amount: number, cola: number): number {
   if (cola !== 0 && FreqMap[frequency] !== 0) {
@@ -934,10 +934,10 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
           aggregate += amount;
           if ((i + 1) % colaPeriods === 0 && (i + 1) < numberPmts) {
               tracker *= 1 + cola;
-              amount = toFixed(tracker, 2);
+              amount = ToFixed(tracker, 2);
           }
       }
-      return toFixed(aggregate, 2);
+      return ToFixed(aggregate, 2);
   }
-  return toFixed(numberPmts * amount, 2);
+  return ToFixed(numberPmts * amount, 2);
 }
