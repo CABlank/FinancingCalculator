@@ -63,14 +63,14 @@ interface Answer {
   YeValuations: YearEnd[]; // Assuming "YearEnd" is another type you have defined
 }
 interface Schedule {
-  Type: string;
+  Type?: string;
   Date: string;
   Payment: number;
   Cashflow?: number;
-  Principal: number;
-  Interest: number;
-  DCFPrincipal: number;
-  DCFInterest: number;
+  Principal?: number;
+  Interest?: number;
+  DCFPrincipal?: number;
+  DCFInterest?: number;
   DCFBalance?: number;
   Balance?: number;
 }
@@ -86,7 +86,7 @@ interface YearEnd {
   Date: string;
   Value: number;
   Aggregate: number; // You can use the same name as in Go
-  YearlyDCFInterest: number; // Use camelCase as per TypeScript naming conventions
+  YearlyDCFInterest?: number; // Use camelCase as per TypeScript naming conventions
   YearlyInterest: number;
   YearlyCumulative: number;
 }
@@ -115,34 +115,26 @@ interface Annuity {
 }
 
 interface DeferralData {
-  pvDate: Date;
+  pvDate?: Date;
   from: Date;
   to: Date;
   compoundFreq: number;
   paymentFreq: number;
 }
 
-interface YearEnd {
-    Date: string;
-    Value: number;
-    Aggregate: number;
-    YearlyInterest: number;
-    YearlyCumulative: number;
-}
-
 interface CfArray {
-  RowID: number;
-  PmtNmbr: number;
+  RowID?: number;
+  PmtNmbr?: number;
   RootPmtPntr?: number[];
-  CaseCode: string;
+  CaseCode?: string;
   Date: Date; // Use string for time in ISO format or use a Date object if preferred
   Amount: number;
   DiscountFactor?: number;
   DCF?: number;
   Kind: number;
-  Escrow: boolean;
+  Escrow?: boolean;
   Unknown?: boolean;
-  Freq: string;
+  Freq?: string;
   Owner?: string;
   dcfStubPeriods?: number;
   dcfStubDays?: number;
@@ -333,7 +325,7 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
       } else if (a.Date > b.Date) {
         return 1;
       } else {
-        return a.RowID - b.RowID;
+        return a.RowID! - b.RowID!;
       }
     });
   }
@@ -542,7 +534,7 @@ function setStubs(aa: CfArray[], annuity: Annuity): void {
 
       data.from = aa[i - 1].Date;
       data.to = v.Date;
-      data.paymentFreq = FreqMap[annuity.CashFlows[v.RowID].Frequency] || 0;
+      data.paymentFreq = FreqMap[annuity.CashFlows[v.RowID!].Frequency] || 0;
       if (data.paymentFreq !== 0) {
           data.paymentFreq = 12 / data.paymentFreq;
       } else {
@@ -557,7 +549,7 @@ function setStubs(aa: CfArray[], annuity: Annuity): void {
           [aa[i].stubDays, aa[i].stubPeriods] = createStubs(data);
       }
 
-      data.from = data.pvDate;
+      data.from = data.pvDate!;
       [aa[i].dcfStubDays, aa[i].dcfStubPeriods] = createStubs(data);
   }
 }
@@ -820,7 +812,7 @@ function insertSchedTotals(result: Answer): Schedule[] {
 
   for (i = 0; i < result.AmSchedule.length; i++) {
       if (year !== result.AmSchedule[i].Date.slice(-4)) {
-          result.AmSchedule.splice(i, 0, empty);
+          result.AmSchedule.splice(i, 0, empty!);
           result.AmSchedule[i] = insertTotals();
           totals.payments = 0;
           totals.interest = 0;
@@ -830,11 +822,11 @@ function insertSchedTotals(result: Answer): Schedule[] {
       } else {
           if (result.AmSchedule[i].Type === "Return") {
               totals.payments += ToFixed(result.AmSchedule[i].Payment, 2);
-              totals.interest += ToFixed(result.AmSchedule[i].Interest, 2);
-              totals.dcfInterest += ToFixed(result.AmSchedule[i].DCFInterest, 2);
-              totals.totalDCFInterest += ToFixed(result.AmSchedule[i].DCFInterest, 2);
+              totals.interest += ToFixed(result.AmSchedule[i].Interest!, 2);
+              totals.dcfInterest += ToFixed(result.AmSchedule[i].DCFInterest!, 2);
+              totals.totalDCFInterest += ToFixed(result.AmSchedule[i].DCFInterest!, 2);
               totals.totalPayments += ToFixed(result.AmSchedule[i].Payment, 2);
-              totals.totalInterest += ToFixed(result.AmSchedule[i].Interest, 2);
+              totals.totalInterest += ToFixed(result.AmSchedule[i].Interest!, 2);
           }
       }
   }
@@ -871,13 +863,13 @@ function amortizeYE(c: AnnuityArray, annuity: Annuity) {
 
 // Continuing with other functions ...
 
-export function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
+function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
     result.IsAmSchedule = annuity.UseAmSchedule;
     const finalPaymentDate = aa[aa.length - 1].Date;
     const finalYear = finalPaymentDate.getFullYear();
     const compounding = 12 / FreqMap[annuity.Compounding];
     const ye: YearEnd[] = new Array(finalYear - aa[0].Date.getFullYear() + 1);
-    const c: CfArray[] = [...aa];
+    let c: CfArray[] = [...aa];
     let pFreq = 0;
     let yeIndex = 0;
     let aggregate = 0;
@@ -895,7 +887,7 @@ export function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answe
     }
 
     for (let thisYear = startYear; thisYear < finalYear; thisYear++) {
-        [c, aggregate, cumulativeAgg, yeIndex] = annuity.getYearEndValues(finalPaymentDate, c, aggregate, cumulativeAgg, thisYear, pFreq, compounding, yeIndex, startYear, ye, result);
+        [c, aggregate, cumulativeAgg, yeIndex] = getYearEndValues(annuity, finalPaymentDate, c, aggregate, cumulativeAgg, thisYear, pFreq, compounding, yeIndex, startYear, ye, result);
         cumulativeAgg += aggregate;
     }
 
@@ -916,7 +908,7 @@ export function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answe
     return ye;
 }
 
-Annuity.prototype.getYearEndValues = function(finalPaymentDate: Date, c: CfArray[], aggregate: number, cumulative: number, thisYear: number, pFreq: number, compounding: number, yeIndex: number, startYear: number, ye: YearEnd[], result: Answer): [CfArray[], number, number, number] {
+function getYearEndValues(annuity: Annuity,finalPaymentDate: Date, c: CfArray[], aggregate: number, cumulative: number, thisYear: number, pFreq: number, compounding: number, yeIndex: number, startYear: number, ye: YearEnd[], result: Answer): [CfArray[], number, number, number] {
     const yeStartDate = parse(`12/31/${thisYear}`, 'MM/dd/yyyy', new Date());
 
     if (yeStartDate < finalPaymentDate) {
@@ -938,7 +930,7 @@ Annuity.prototype.getYearEndValues = function(finalPaymentDate: Date, c: CfArray
             break;
         }
         cumulative += aggregate;
-        pFreq = FreqMap[this.CashFlows[c[1].RowID].Frequency];
+        pFreq = FreqMap[annuity.CashFlows[c[1].RowID!].Frequency];
 
         if (pFreq !== 0) {
             pFreq = 12 / pFreq;
@@ -955,7 +947,7 @@ Annuity.prototype.getYearEndValues = function(finalPaymentDate: Date, c: CfArray
 
         [c[1].stubDays, c[1].stubPeriods] = createStubs(deferral);
 
-        amortizeYE(c, this);
+        amortizeYE(c, annuity);
 
         yeIndex = yeStartDate.getFullYear() - startYear;
         ye[yeIndex] = {
@@ -974,8 +966,8 @@ Annuity.prototype.getYearEndValues = function(finalPaymentDate: Date, c: CfArray
 function getDCFYearlyInterest(year: number, result: Answer): number {
     const y = year.toString();
     for (const item of result.AmSchedule) {
-        if (item.Type.indexOf(y) > -1) {
-            return result.IsAmSchedule ? item.Interest : item.DCFInterest;
+        if (item.Type!.indexOf(y) > -1) {
+            return result.IsAmSchedule! ? item.Interest! : item.DCFInterest!;
         }
     }
     return 0;
