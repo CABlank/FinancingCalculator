@@ -1,12 +1,17 @@
 interface CashFlow {
-  first: string;
+  first: string; 
+  caseCode: string;
+  parentChild: boolean;
+  buyer: string;
+  cfType: string; 
+  last: Date;
+  number: number;
   amount: number;
   frequency: string;
-  cfType: string;
-  number: number;
-  escrow: string;
-  caseCode: string;
-  buyer: string;
+  COLA: number;
+  colaPeriods: number;
+  unknown: boolean;
+  escrow: boolean;
 }
 
 interface CfArray {
@@ -15,20 +20,45 @@ interface CfArray {
   formattedDate: string;
   amount: number;
   kind: number;
-  escrow: string;
+  escrow: boolean;
   caseCode: string;
-  owner: string;
   pmtNmbr: number;
   freq: string;
+  owner: string;
+  // Added stub values as they were present in the Go struct but not in your TypeScript code.
+  dcfStubPeriods?: number;  // optional because it wasn't in your original TypeScript interface
+  dcfStubDays?: number;     // optional because it wasn't in your original TypeScript interface
+  stubPeriods?: number;     // optional because it wasn't in your original TypeScript interface
+  stubDays?: number;        // optional because it wasn't in your original TypeScript interface
+  compounding: string;
 }
 
 type AnnuityArray = CfArray[];
 
+
 interface Annuity {
+  dcfCode?: string; // <-- The '?' makes it optional 
+  effective?: number;
+  nominal?: number;
+  label?: string;
+  dailyRate?: number;
+  desc?: string;
+  type?: string;
+  unknown?: boolean;
+  useAmSchedule?: boolean;
+  estimateDCF: number;
+  asOf: Date; // converted time.Time to Date for TS
   cashFlows: CashFlow[];
+  carrier: string;
+  aggregate: number;
+  customCF: boolean;
+  documentRecipient: string;
   compounding: string;
-  asOf?: Date;
+  
 }
+
+
+
 
 interface Answer {
   unknownRow?: number;
@@ -38,15 +68,16 @@ interface Answer {
 }
 
 
-
+const FreqMap: { [key: string]: number } = {
+  "Monthly": 1,
+  "Quarterly": 3,
+  "Semi-Annually": 6,
+  "Annually": 12
+  // ... add other frequencies if needed
+};
 
 
 function NewCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date | undefined] {
-  const FreqMap: { [key: string]: number } = {
-      "Monthly": 1,
-      // ... Other mappings
-  };
-
   let pFreq: number;
   let cfType: number;
   let firstPaymentDate: Date;
@@ -92,8 +123,10 @@ function NewCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
         caseCode: v.caseCode,
         owner: v.buyer,
         pmtNmbr: row * v.number + j,
-        freq: v.frequency
+        freq: v.frequency,
+        compounding: compounding
       });
+      
       console.log(`Pushed new cash flow array element for row ${row}, payment number: ${j}`);
   }
   
@@ -106,24 +139,42 @@ function NewCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
 
 
 
-
-
-function CalcAnnuity(annuity: Annuity): Answer {
-  console.log("Starting CalcAnnuity function with annuity data:", annuity);
-  const result: Answer = {};
+async function CalcAnnuity(annuity: Annuity): Promise<{ UnknownRow: number, Answer: number, Effective: number }> {
   let aa: AnnuityArray;
-  [aa, annuity.asOf] = NewCashflowArray(annuity.cashFlows, annuity.compounding);
-
-  console.log("Annuity array and asOf date after processing:", aa, annuity.asOf);
-
-  if (annuity.asOf) {
-      result.PV = 1000;  // Just an example value
+  let result = NewCashflowArray(annuity.cashFlows, annuity.compounding);
+  aa = result[0];
+  if (result[1]) {
+      annuity.asOf = result[1];
   } else {
-      result.answer = 200;  // Another example value
+      // Handle the case where the date is undefined. Maybe set a default date or throw an error.
+      annuity.asOf = new Date(); // defaulting to the current date as an example
   }
-  console.log("Final result of CalcAnnuity:", result);
-  return result;
+  if (annuity.unknown) {
+    let err: Error | null;
+    let resultAnswer: number;
+
+    [resultAnswer, err] = amortizeRate(aa, annuity);
+    
+    if (err) {
+      throw err;
+    }
+
+    annuity.effective = Effective(resultAnswer);
+
+    return {
+      UnknownRow: -1,
+      Answer: resultAnswer,
+      Effective: annuity.effective
+    };
+  }
+
+  return {
+    UnknownRow: 0, // replace with actual value
+    Answer: 0,     // replace with actual value
+    Effective: 0   // replace with actual value
+};
 }
+
 
 function paymentCount(cfs: CashFlow[]): number {
   let sum = 0;
@@ -199,21 +250,90 @@ function formatDateToYYYYMMDD(date: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+
+
+function amortizeRate(aa: AnnuityArray, annuity: Annuity): [number, Error | null] {
+  let guess = 0;
+  let balance = 0;
+  let min = -1;
+  let max = 1;
+
+  while ((max - min) > 0.0000001) {
+    guess = (min + max) / 2;
+
+    if (min > 0.99999 || max < -0.99999) {
+      return [0, new Error(`Interest rate out of range error with guessed rate = ${guess} and annuity pv = ${annuity.cashFlows[0].amount}`)];
+    }
+
+    annuity.nominal = guess;
+    annuity.dailyRate = annuity.nominal / 365;
+    balance = amortize(aa, annuity); // This function has to be defined
+
+    if (balance > 0) {
+      max = guess;
+    } else {
+      min = guess;
+    }
+  }
+
+  return [guess, null];
+}
+
+function Nominal(rate: number): number {
+  return 12.0 * (Math.pow(rate + 1.0, 1.0 / 12.0) - 1.0);
+}
+
+function Effective(rate: number): number {
+  return Math.pow(1.0 + (rate / 12), 12) - 1;
+}
+
+
+function amortize(aa: AnnuityArray, annuity: Annuity): number {
+  let interest = 0;
+  let balance = 0;
+
+  aa.forEach(v => {
+      if (v.stubDays && v.stubPeriods) {
+        interest = v.stubDays * (annuity.dailyRate || 0) * balance;
+
+          balance += interest;
+          balance *= Math.pow(1 + (annuity.nominal || 0) / FreqMap[annuity.compounding], v.stubPeriods);
+      }
+      balance -= v.amount * v.kind;
+  });
+
+  return balance;
+}
+
+
+
 const annuityData: Annuity = {
   cashFlows: [
-      {
-          first: "2023-01-01",
-          amount: 100,
-          frequency: "Monthly",
-          cfType: "Return",
-          number: 6,
-          escrow: "",
-          caseCode: "",
-          buyer: ""
-      }
+    {
+      first: "2023-01-01",
+      amount: 100,
+      frequency: "Monthly",
+      cfType: "Return",
+      number: 6,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,  // or true, based on your requirements
+      last: new Date("2024-01-01"),
+      COLA: 0,  // example value
+      colaPeriods: 1,  // example value
+      unknown: false  // or true, based on your requirements
+    }
   ],
-  compounding: "Monthly"
+  compounding: "Monthly",
+  estimateDCF: 0,   // Place holder value, replace with your actual value
+  asOf: new Date(), // Place holder value, replace with your actual value
+  carrier: "",      // Place holder value, replace with your actual value
+  aggregate: 0,     // Place holder value, replace with your actual value
+  customCF: false,  // Place holder value, replace with your actual value
+  documentRecipient: "" // Place holder value, replace with your actual value
 };
+
 
 const result = CalcAnnuity(annuityData);
 console.log(result);
