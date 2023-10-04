@@ -101,6 +101,12 @@ CompoundFreq: number;
 PaymentFreq: number;
 }
 
+interface ScheduleData {
+  principal: number;
+  accruedInterest: number;
+  balance: number;
+}
+
 const FreqMap: { [key: string]: number } = {
 Monthly: 12,
 Quarterly: 4,
@@ -348,6 +354,14 @@ for (let V of Aa) {
     DayDiff = DifferenceInDays(V.Date, WalDate!);
     WalAgg += DayDiff * V.Amount;
 }
+
+
+function DiffDays(a: Date, b: Date): number {
+  const differenceInMilliseconds = a.getTime() - b.getTime();
+  const differenceInDays = Math.floor(differenceInMilliseconds / (1000 * 3600 * 24));
+  return differenceInDays;
+}
+
 return ToFixed(WalAgg / Aggregate / 365, 1);
 }
 
