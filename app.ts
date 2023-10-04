@@ -49,38 +49,45 @@ interface Answer {
   DCFpv: number;
   DCFRounding: number;
   Rate: number;
-  row: number; // Note: In TypeScript, property names are case-sensitive, so "row" instead of "UnknownRow"
-  answer: number;
-  rounding: number;
-  wal: number;
-  hwmark: number; // Note: In TypeScript, property names should use camelCase, so "hwmark" instead of "HWMark"
-  hwMarkDate: string; // Note: In TypeScript, property names should use camelCase, so "hwMarkDate" instead of "HWMarkDate"
-  term: number;
-  isamschedule: boolean; // Note: In TypeScript, property names should use camelCase, so "isamschedule" instead of "IsAmSchedule"
-  totalPayout: number; // Note: In TypeScript, property names should use camelCase, so "totalPayout" instead of "TotalPayout"
+  UnknownRow: number; // Note: In TypeScript, property names are case-sensitive, so "row" instead of "UnknownRow"
+  Answer: number;
+  Rounding: number;
+  WAL: number;
+  HWMark: number; // Note: In TypeScript, property names should use camelCase, so "hwmark" instead of "HWMark"
+  HWMarkDate: string; // Note: In TypeScript, property names should use camelCase, so "hwMarkDate" instead of "HWMarkDate"
+  Term: number;
+  IsAmSchedule: boolean; // Note: In TypeScript, property names should use camelCase, so "AmSchedule" instead of "AmSchedule"
+  TotalPayout: number; // Note: In TypeScript, property names should use camelCase, so "totalPayout" instead of "TotalPayout"
   isPmtSchedule: boolean; // Note: In TypeScript, property names should use camelCase, so "isPmtSchedule" instead of "IsPmtSchedule"
-  schedule: Schedule[]; // Assuming "Schedule" is another type you have defined
-  yearend: YearEnd[]; // Assuming "YearEnd" is another type you have defined
+  AmSchedule: Schedule[]; // Assuming "Schedule" is another type you have defined
+  YeValuations: YearEnd[]; // Assuming "YearEnd" is another type you have defined
 }
 interface Schedule {
-  type: string;
-  date: string;
-  cashflow: number;
-  principal: number;
-  interest: number;
-  dcfprincipal: number;
-  dcfinterest: number;
-  dcf_balance: number;
-  balance: number;
+  Type: string;
+  Date: string;
+  Cashflow: number;
+  Principal: number;
+  Interest: number;
+  DCFPrincipal: number;
+  DCFInterest: number;
+  DCFBalance: number;
+  Balance: number;
+}
+
+interface ScheduleData {
+  balance?: number;
+  accruedInterest?: number;
+  principal?: number;
+  //... any other properties that scheduleData may have
 }
 
 interface YearEnd {
-  date: string;
-  valuation: number;
-  aggregate: number; // You can use the same name as in Go
-  yearlyDCFInterest: number; // Use camelCase as per TypeScript naming conventions
-  yearlyInterest: number;
-  yearlyCumulative: number;
+  Date: string;
+  Value: number;
+  Aggregate: number; // You can use the same name as in Go
+  YearlyDCFInterest: number; // Use camelCase as per TypeScript naming conventions
+  YearlyInterest: number;
+  YearlyCumulative: number;
 }
 
 interface AnnuityArrayItem {
@@ -117,11 +124,23 @@ interface YearEnd {
 }
 
 interface CfArray {
-    Date: Date;
-    Amount: number;
-    Kind: number;
-    stubPeriods: number;
-    stubDays: number;
+  RowID: number;
+  PmtNmbr: number;
+  RootPmtPntr: number[];
+  CaseCode: string;
+  Date: string; // Use string for time in ISO format or use a Date object if preferred
+  Amount: number;
+  DiscountFactor: number;
+  DCF: number;
+  Kind: number;
+  Escrow: boolean;
+  Unknown: boolean;
+  Freq: string;
+  Owner: string;
+  dcfStubPeriods: number;
+  dcfStubDays: number;
+  stubPeriods: number;
+  stubDays: number;
 }
 
 
@@ -133,26 +152,30 @@ const FreqMap: { [key: string]: number } = {
   Payment: 0,
 };
 
+type AnnuityArray = AnnuityArrayItem[];
+
 const app = express();
 const port = process.env.PORT || 3000;
 app.set('view engine', 'ejs');
 
 async function calculator(req: Request, res: Response) {
   try {
-    const result = await Calc(req, true);
+    const result = await calc(req, true);
 
     // Sending JSON response
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json(result);
-  } catch (err: Error | null) {
-    console.error(err);
-    res.status(403).send(err.message);
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error(err);
+      res.status(403).send(err.message);
+    }
   }
 }
 
-async function Calc(req: Request, schedule: boolean): Promise<{ answer: Answer | undefined; annuity: Annuity | undefined; error: Error | null }> {
-  const result: { answer: Answer | undefined; annuity: Annuity | undefined; error: Error | null } = {
-    answer: undefined,
+async function calc(req: Request, schedule: boolean): Promise<{ answer: Answer | Error | null; annuity: Annuity | undefined; error: Answer | Error | null }> {
+  const result: { answer: Answer | Error | null; annuity: Annuity | undefined; error: Answer | Error | null } = {
+    answer: null,
     annuity: undefined,
     error: null,
   };
@@ -165,10 +188,10 @@ async function Calc(req: Request, schedule: boolean): Promise<{ answer: Answer |
   const annuityResponse  = await NewAnnuity(req);
   
   if (!annuityResponse.error) {
-    const response2 = calcAnnuity(annuityResponse.annuity, schedule);
-    if(response2) {
-      result.answer = response2.answer;
-      result.error = response2.error;
+    const [ answer, error ] = await calcAnnuity(annuityResponse.annuity, schedule);
+    if(error) {
+      result.answer = answer;
+      result.error = error;
     }
   }
 
@@ -189,16 +212,19 @@ async function NewAnnuity(req: Request): Promise<{ error: Error | null; annuity:
 
     const annuityData = Buffer.concat(annuityBuffer).toString('utf-8');
     annuity = JSON.parse(annuityData);
-  } catch (err: Error | null) {
-    error = err;
+  } catch (err) {
+    if (err instanceof Error) {
+      error = err;
+    }
   }
 
   return { error, annuity };
 }
 
-function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
+async function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
   let err = null;
-  const result = {'UnknownRow': 0, 'Answer': };
+  const result: Answer = {} as Answer
+
   if(annuity) {
     let aa = [];
     
@@ -234,8 +260,6 @@ function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
   }
   return [result, err];
 }
-
-type AnnuityArray = AnnuityArrayItem[];
 
 function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date] {
   let pFreq: number, cfType: number, i: number;
@@ -421,19 +445,12 @@ function amortize(aa: AnnuityArrayItem[], annuity: Annuity): number {
 
   return balance;
 }
-type deferralData = {
-  pvDate: Date;
-  from: Date;
-  to: Date;
-  compoundFreq: number;
-  paymentFreq: number;
-};
 
 function setStubs(aa: AnnuityArrayItem[], annuity: Annuity): void {
   const compounding: number = 12 / FreqMap[annuity.Compounding];
   let payPeriod: number;
 
-  const data: deferralData = {
+  const data: DeferralData = {
       pvDate: aa[0].Date,
       from: aa[0].Date,
       to: aa[0].Date,
@@ -472,7 +489,7 @@ function setStubs(aa: AnnuityArrayItem[], annuity: Annuity): void {
   }
 }
 
-function createStubs(data: deferralData): [number, number] {
+function createStubs(data: DeferralData): [number, number] {
   let countMonths = data.to.getMonth() - data.from.getMonth() + (12 * (data.to.getFullYear() - data.from.getFullYear()));
   if (countMonths !== 0) {
       if (data.to.getDate() < data.from.getDate()) {
@@ -587,34 +604,6 @@ function ToFixed(num: number, precision: number): number {
   return round(num * output) / output;
 }
 
-interface Answer {
-  AmSchedule: Schedule[];
-  HWMark: number;
-  DCFRounding: number;
-  DCFpv: number;
-  PV: number;
-  HWMarkDate: string;
-  //... any other properties that Answer may have
-}
-
-interface Schedule {
-  Date: string;
-  Payment: number;
-  Type: string;
-  DCFInterest: number;
-  DCFPrincipal: number;
-  Principal?: number;
-  Interest?: number;
-  Balance?: number;
-}
-
-interface ScheduleData {
-  balance?: number;
-  accruedInterest?: number;
-  principal?: number;
-  //... any other properties that scheduleData may have
-}
-
 function CreateAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, sum: number): Schedule[] {
   result.AmSchedule = new Array<Schedule>(sum);
   result.HWMark = 0;
@@ -684,46 +673,12 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
   return data.amSchedReturnVals(AnnuityArrayAtIndex, index);
 }
 
-ScheduleData.prototype.amSchedReturnVals = function(this: ScheduleData, AnnuityArrayAtIndex: CfArray, index: number): Schedule {
-  const s: Schedule = {
-      Date: (new Date(AnnuityArrayAtIndex.Date)).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit', year: 'numeric' }),
-      Payment: AnnuityArrayAtIndex.Amount
-  };
-
-  if (AnnuityArrayAtIndex.Kind === 1) {
-      s.Type = "Return";
-      s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF, 2);
-      s.DCFPrincipal = AnnuityArrayAtIndex.DCF;
-
-      if (index === 0) {
-          this.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
-      } else {
-          s.Principal = this.principal!;
-          s.Interest = AnnuityArrayAtIndex.Amount - this.principal!;
-      }
-
-  } else {
-      s.Type = "Invest";
-
-      if (index === 0) {
-          this.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
-          s.DCFPrincipal = AnnuityArrayAtIndex.Amount;
-      } else {
-          s.Interest = this.accruedInterest!;
-          s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF, 2);
-      }
-  }
-
-  s.Balance = this.balance;
-  return s;
-}
-
 // Placeholder for any missing functions or types, like `ToFixed`, `insertSchedTotals`, `FreqMap`, `AnnuityArray`, `CfArray`, etc.
 // You'd need to define or replace them accordingly.
 
 
 function insertSchedTotals(result: Answer): Schedule[] {
-  const empty: Schedule = {};
+  const empty: Schedule;
   let i: number = 0;
   let year: string = result.AmSchedule[0].Date.slice(-4);
 
