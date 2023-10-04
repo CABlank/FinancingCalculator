@@ -65,13 +65,14 @@ interface Answer {
 interface Schedule {
   Type: string;
   Date: string;
-  Cashflow: number;
+  Payment: number;
+  Cashflow?: number;
   Principal: number;
   Interest: number;
   DCFPrincipal: number;
   DCFInterest: number;
-  DCFBalance: number;
-  Balance: number;
+  DCFBalance?: number;
+  Balance?: number;
 }
 
 interface ScheduleData {
@@ -90,17 +91,23 @@ interface YearEnd {
   YearlyCumulative: number;
 }
 
-interface AnnuityArrayItem {
-  RowID: number;
-  Date: Date;
-  Amount: number;
-  Kind: number;
-  Escrow: boolean;
-  CaseCode: string;
-  Owner: string;
-  PmtNmbr: number;
-  Freq: string;
-}
+// interface AnnuityArrayItem {
+//   RowID: number;
+//   Date: Date;
+//   Amount: number;
+//   Kind: number;
+//   Escrow: boolean;
+//   DCF: string;
+//   CaseCode: string;
+//   DiscountFactor?: string;
+//   Owner: string;
+//   PmtNmbr: number;
+//   Freq: string;
+//   stubDays?: number;
+//   dcfStubPeriods?: number
+// 	dcfStubDays?: number
+// 	stubPeriods?: number
+// }
 
 interface Annuity {
   Compounding: string;
@@ -126,21 +133,21 @@ interface YearEnd {
 interface CfArray {
   RowID: number;
   PmtNmbr: number;
-  RootPmtPntr: number[];
+  RootPmtPntr?: number[];
   CaseCode: string;
-  Date: string; // Use string for time in ISO format or use a Date object if preferred
+  Date: Date; // Use string for time in ISO format or use a Date object if preferred
   Amount: number;
-  DiscountFactor: number;
-  DCF: number;
+  DiscountFactor?: number;
+  DCF?: number;
   Kind: number;
   Escrow: boolean;
-  Unknown: boolean;
+  Unknown?: boolean;
   Freq: string;
-  Owner: string;
-  dcfStubPeriods: number;
-  dcfStubDays: number;
-  stubPeriods: number;
-  stubDays: number;
+  Owner?: string;
+  dcfStubPeriods?: number;
+  dcfStubDays?: number;
+  stubPeriods?: number;
+  stubDays?: number;
 }
 
 
@@ -152,7 +159,7 @@ const FreqMap: { [key: string]: number } = {
   Payment: 0,
 };
 
-type AnnuityArray = AnnuityArrayItem[];
+type AnnuityArray = CfArray[];
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -262,14 +269,17 @@ async function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
 }
 
 function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date] {
-  let pFreq: number, cfType: number, i: number;
-  let firstPaymentDate: Date, asOf: Date;
+  let pFreq: number;
+  let cfType: number;
+  let i: number = 0;
+  let firstPaymentDate: Date;
+  let asOf: Date = new Date();
   let sortRequired = false, asOfBool = false;
-  const aa: AnnuityArray = new Array<AnnuityArrayItem>(PaymentCount(pmts));
+  const aa: AnnuityArray = new Array<CfArray>(paymentCount(pmts));
 
   for (let row = 0; row < pmts.length; row++) {
     const v = pmts[row];
-    firstPaymentDate = dateutils.ParseDateFromString(v.First);
+    firstPaymentDate = parseDateFromString(v.First);
     let amount = v.Amount;
     let tracker = amount;
 
@@ -292,13 +302,13 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
     const escrow = v.Escrow;
 
     if (i > 0 && !sortRequired) {
-      sortRequired = dateutils.CompareDates(firstPaymentDate, aa[i - 1].Date);
+      sortRequired = compareDates(firstPaymentDate, aa[i - 1].Date);
     }
 
     for (let j = 0; j < v.Number; j++) {
       aa[i] = {
         RowID: row,
-        Date: dateutils.AddMonths(firstPaymentDate, j * pFreq),
+        Date: addMonths(firstPaymentDate, j * pFreq),
         Amount: amount,
         Kind: cfType,
         Escrow: escrow,
@@ -331,6 +341,37 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
   return [aa, asOf];
 }
 
+function getAnnuityPV(aa: AnnuityArray, d: Date): number {
+  for (let i = 0; i < aa.length; i++) {
+    if (aa[i].Date.getTime() === d.getTime() && aa[i].Kind === -1) {
+      return aa[i].Amount;
+    }
+  }
+  return 0;
+}
+
+function parseDateFromString(timeString: string): Date {
+  if (timeString.includes("-")) {
+    return parseInvntoryDateFormat(timeString);
+  }
+  return parseFBDateFormat(timeString);
+}
+
+function parseInvntoryDateFormat(d: string): Date {
+  const thisDate = new Date(d); // Assuming the input format is "yyyy-MM-dd"
+  return thisDate;
+}
+
+function parseFBDateFormat(d: string): Date {
+  const thisDate = new Date(d); // Assuming the input format is "MM/dd/yyyy"
+  return thisDate;
+}
+
+function compareDates(now: Date, prior: Date): boolean {
+  const compared = prior > now;
+  return compared;
+}
+
 
 // Assuming that dateutils.AddMonths is similar to date-fns's addMonths
 // and dateutils.DiffDays is similar to date-fns's differenceInDays
@@ -342,6 +383,34 @@ function getInvestmentValue(annuity: Annuity): number {
     }
   }
   return 0;
+}
+
+function addMonths(date: Date, offset: number): Date {
+  const tDate = new Date(date);
+  let dayOfMonth = date.getDate();
+
+  if (dayOfMonth > 28) {
+    date = setDate(date, 28); // Ensures month doesn't spill over from addDate with dayOfMonth > 28
+  }
+
+  date.setMonth(date.getMonth() + offset);
+
+  if (
+    dayOfMonth === daysInMonth(tDate.getFullYear(), tDate.getMonth() + 1) ||
+    dayOfMonth > daysInMonth(date.getFullYear(), date.getMonth() + 1)
+  ) {
+    return setDate(date, daysInMonth(date.getFullYear(), date.getMonth() + 1));
+  }
+
+  return setDate(date, dayOfMonth);
+}
+
+function setDate(date: Date, day: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), day, 0, 0, 0, 0);
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
 }
 
 function lastPaymentDate(firstPaymentDate: Date, numberPmts: number, frequency: string): Date {
@@ -356,27 +425,37 @@ function paymentCount(cfs: CashFlow[]): number {
 }
 
 function stringifyWalTerm(r: Answer): [string, string] {
-  return [
-    r.term.ToFixed(1),
-    r.wal.ToFixed(1),
-  ];
+  const termString = r.Term.toFixed(1);
+  const walString = r.WAL.toFixed(1);
+  return [termString, walString];
 }
 
-function calcWAL(aa: AnnuityArrayItem[], start: Date): number {
+function calcWAL(aa: AnnuityArray, aggregate: number): number {
   let walAgg = 0;
-  let aggregate = 0;
-  for (let v of aa) {
-    if (v.Date < start) {
+  let dayDiff: number;
+  let walDate: Date | null = null;
+
+  for (const v of aa) {
+    if (v.Kind !== 1) {
+      if (!walDate) {
+        walDate = v.Date;
+      }
       continue;
     }
-    const dayDiff = differenceInDays(v.Date, start);
-    aggregate += v.Amount;
+
+    if (!walDate) {
+      walDate = v.Date;
+      continue;
+    }
+
+    dayDiff = diffDays(v.Date, walDate);
     walAgg += dayDiff * v.Amount;
   }
-  return ToFixed(walAgg / aggregate / 365, 1);
+
+  return ToFixed(walAgg / (aggregate * 365), 1);
 }
 
-function calcWALWithAggregate(aa: AnnuityArrayItem[], aggregate: number): number {
+function calcWALWithAggregate(aa: CfArray[], aggregate: number): number {
   let walAgg = 0;
   let dayDiff: number;
   let walDate: Date | null = null;
@@ -388,7 +467,7 @@ function calcWALWithAggregate(aa: AnnuityArrayItem[], aggregate: number): number
       continue;
     }
 
-    dayDiff = differenceInDays(v.Date, walDate!);
+    dayDiff = diffDays(v.Date, walDate!);
     walAgg += dayDiff * v.Amount;
   }
   return ToFixed(walAgg / aggregate / 365, 1);
@@ -402,11 +481,11 @@ function effective(rate: number): number {
   return Math.pow(1.0 + (rate / 12), 12) - 1;
 }
 
-function aaAggregate(aa: AnnuityArrayItem[]): number {
+function aaAggregate(aa: CfArray[]): number {
   return aa.reduce((agg, v) => v.Kind === 1 ? agg + v.Amount : agg, 0);
 }
 
-function getInvestmentDate(aa: AnnuityArrayItem[]): Date {
+function getInvestmentDate(aa: CfArray[]): Date {
   for (let item of aa) {
     if (item.Kind === -1) {
       return item.Date;
@@ -415,7 +494,12 @@ function getInvestmentDate(aa: AnnuityArrayItem[]): Date {
   return aa[aa.length - 1].Date;
 }
 
-function estimatePV(aa: AnnuityArrayItem[], rate: number): number {
+function diffDays(a: Date, b: Date): number {
+  const difference = a.getTime() - b.getTime();
+  return Math.floor(difference / (1000 * 3600 * 24));
+}
+
+function estimatePV(aa: CfArray[], rate: number): number {
   let pvEstimate = 0;
   const pvDate = getInvestmentDate(aa);
   for (let i = 0; i < aa.length; i++) {
@@ -423,30 +507,19 @@ function estimatePV(aa: AnnuityArrayItem[], rate: number): number {
     if (pvDate.getTime() === v.Date.getTime() && v.Kind === -1) {
       continue;
     } else {
-      const period = v.dcfStubPeriods + (v.dcfStubDays / 365 * 12);
-      aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
-      aa[i].DCF = ToFixed(aa[i].DiscountFactor * aa[i].Amount, 2);
-      pvEstimate += aa[i].DCF;
+      if (v.dcfStubPeriods !== undefined && v.dcfStubDays !== undefined) {
+        const period = v.dcfStubPeriods + (v.dcfStubDays / 365 * 12);
+        aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
+        aa[i].DCF = ToFixed(aa[i].DiscountFactor! * aa[i].Amount, 2);
+        pvEstimate += aa[i].DCF!;
+        // Use the non-null assertion operator (!) to tell TypeScript that DCF is not null/undefined
+      }
     }
   }
   return pvEstimate;
 }
 
-function amortize(aa: AnnuityArrayItem[], annuity: Annuity): number {
-  let interest: number = 0;
-  let balance: number = 0;
-
-  for (const v of aa) {
-    interest = v.stubDays * annuity.DailyRate * balance;
-    balance += interest;
-    balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods);
-    balance -= v.Amount * v.Kind;
-  }
-
-  return balance;
-}
-
-function setStubs(aa: AnnuityArrayItem[], annuity: Annuity): void {
+function setStubs(aa: CfArray[], annuity: Annuity): void {
   const compounding: number = 12 / FreqMap[annuity.Compounding];
   let payPeriod: number;
 
@@ -494,14 +567,14 @@ function createStubs(data: DeferralData): [number, number] {
   if (countMonths !== 0) {
       if (data.to.getDate() < data.from.getDate()) {
           countMonths--;
-          if (data.to.getDate() === dateutils.DaysInMonth(data.to.getFullYear(), data.to.getMonth())) {
+          if (data.to.getDate() === daysInMonth(data.to.getFullYear(), data.to.getMonth())) {
               countMonths++;
           }
       }
   }
   const countPeriods = Math.floor(countMonths / data.compoundFreq);
-  const dt = dateutils.AddMonths(data.to, -countPeriods * data.compoundFreq);
-  const stubDays = dateutils.DiffDays(dt, data.from);
+  const dt = addMonths(data.to, -countPeriods * data.compoundFreq);
+  const stubDays = diffDays(dt, data.from);
   return [stubDays, countPeriods];
 }
 
@@ -543,7 +616,7 @@ async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number
           return [0, new Error("ERROR - the cash flow has iterated beyond the max/min range - check that your variables are correct")];
       }
       updateAnnuity(aa, guess, annuity, unknownRow);
-      balance = amortize(aa, annuity);
+      let balance = amortize(aa, annuity);
       if ((annuity.CashFlows[unknownRow].CfType === "Invest" && balance < 0) || (annuity.CashFlows[unknownRow].CfType !== "Invest" && balance > 0)) {
           min = guess;
       } else {
@@ -560,9 +633,9 @@ async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number
 function amortize(aa: AnnuityArray, annuity: Annuity): number {
   let interest = 0, balance = 0;
   for (const v of aa) {
-      interest = v.stubDays * annuity.DailyRate * balance;
+      interest = v.stubDays! * annuity.DailyRate * balance;
       balance += interest;
-      balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods);
+      balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods!);
       balance -= v.Amount * v.Kind;
   }
   return balance;
@@ -601,10 +674,10 @@ function round(num: number): number {
 
 function ToFixed(num: number, precision: number): number {
   const output = Math.pow(10, precision);
-  return round(num * output) / output;
+  return Math.round(num * output) / output;
 }
 
-function CreateAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, sum: number): Schedule[] {
+function createAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, sum: number): Schedule[] {
   result.AmSchedule = new Array<Schedule>(sum);
   result.HWMark = 0;
   result.DCFRounding = result.DCFpv - result.PV;
@@ -651,16 +724,16 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
   const AnnuityArrayAtIndex = aa[index];
 
   if (index === 0) {
-      return data.amSchedReturnVals(AnnuityArrayAtIndex, index);
+      return amSchedReturnVals(data, AnnuityArrayAtIndex, index);
   }
 
   const previousBalance = result.AmSchedule[index - 1].Balance!;
-  const stubInterest = AnnuityArrayAtIndex.stubDays * annuity.DailyRate * previousBalance;
+  const stubInterest = AnnuityArrayAtIndex.stubDays! * annuity.DailyRate * previousBalance;
 
   data.balance = stubInterest + previousBalance;
-  data.balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], AnnuityArrayAtIndex.stubPeriods);
+  data.balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], AnnuityArrayAtIndex.stubPeriods!);
 
-  if (result.HWMark < data.balance!) {
+  if (result.HWMark < data.balance) {
       result.HWMark = data.balance!;
       result.HWMarkDate = (new Date(AnnuityArrayAtIndex.Date)).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit', year: 'numeric' });
   }
@@ -670,15 +743,46 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
   data.balance = ToFixed(data.balance!, 2);
 
   data.principal = ToFixed(previousBalance - data.balance!, 2);
-  return data.amSchedReturnVals(AnnuityArrayAtIndex, index);
+  return amSchedReturnVals(data, AnnuityArrayAtIndex, index);
 }
 
 // Placeholder for any missing functions or types, like `ToFixed`, `insertSchedTotals`, `FreqMap`, `AnnuityArray`, `CfArray`, etc.
 // You'd need to define or replace them accordingly.
 
+function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, index: number): Schedule {
+  const s: Schedule = {
+    Date: AnnuityArrayAtIndex.Date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+    Payment: AnnuityArrayAtIndex.Amount,
+  };
+
+  if (AnnuityArrayAtIndex.Kind === 1) {
+    s.Type = 'Return';
+    s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF!, 2);
+    s.DCFPrincipal = AnnuityArrayAtIndex.DCF!;
+    if (index === 0) {
+      data.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
+    } else {
+      s.Principal = data.principal!;
+      s.Interest = AnnuityArrayAtIndex.Amount - data.principal!;
+    }
+  } else {
+    s.Type = 'Invest';
+    if (index === 0) {
+      data.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
+      s.DCFPrincipal = AnnuityArrayAtIndex.Amount;
+    } else {
+      s.Interest = data.accruedInterest!;
+      s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF!, 2);
+    }
+  }
+
+  s.Balance = data.balance!;
+  return s;
+}
+
 
 function insertSchedTotals(result: Answer): Schedule[] {
-  const empty: Schedule;
+  let empty: Schedule;
   let i: number = 0;
   let year: string = result.AmSchedule[0].Date.slice(-4);
 
@@ -767,7 +871,7 @@ function amortizeYE(c: AnnuityArray, annuity: Annuity) {
 
 // Continuing with other functions ...
 
-export function YearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
+export function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
     result.IsAmSchedule = annuity.UseAmSchedule;
     const finalPaymentDate = aa[aa.length - 1].Date;
     const finalYear = finalPaymentDate.getFullYear();
