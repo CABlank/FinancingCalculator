@@ -2,7 +2,6 @@ function greet(name: string): string {
   return `Hello, ${name}!`;
 }
 
-import path from 'path';
 import express, { Request, Response } from 'express';
 import { Readable } from 'stream';
 
@@ -718,8 +717,6 @@ ScheduleData.prototype.amSchedReturnVals = function(this: ScheduleData, AnnuityA
   return s;
 }
 
-// Placeholder for any missing functions or types, like `ToFixed`, `insertSchedTotals`, `FreqMap`, `AnnuityArray`, `CfArray`, etc.
-// You'd need to define or replace them accordingly.
 
 
 function insertSchedTotals(result: Answer): Schedule[] {
@@ -794,7 +791,6 @@ function insertSchedTotals(result: Answer): Schedule[] {
   return result.AmSchedule;
 }
 
-// Assuming you have defined `amortize` function already in TypeScript.
 function amortizeYE(c: AnnuityArray, annuity: Annuity) {
   let min: number = -100000000;
   let max: number = 100000000;
@@ -923,7 +919,6 @@ function getDCFYearlyInterest(year: number, result: Answer): number {
 }
 
 
-// Assuming you've already defined `FreqMap` and `toFixed` function in TypeScript.
 
 function aggregate(frequency: string, numberPmts: number, amount: number, cola: number): number {
   if (cola !== 0 && FreqMap[frequency] !== 0) {
@@ -941,3 +936,19 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
   }
   return toFixed(numberPmts * amount, 2);
 }
+
+
+
+app.set('views', path.join(__dirname, 'views'));
+app.get('/', (req: Request, res: Response) => {
+  res.render('index')
+});
+app.post('/calculator', (req: Request, res: Response) => {
+  console.log(req.body)
+  
+  res.render('index')
+});
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+console.log(greet('John'));
