@@ -2,7 +2,6 @@ function greet(name: string): string {
   return `Hello, ${name}!`;
 }
 
-import path from 'path';
 import express, { Request, Response } from 'express';
 import { Readable } from 'stream';
 
@@ -959,3 +958,19 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
   }
   return toFixed(numberPmts * amount, 2);
 }
+
+
+
+app.set('views', path.join(__dirname, 'views'));
+app.get('/', (req: Request, res: Response) => {
+  res.render('index')
+});
+app.post('/calculator', (req: Request, res: Response) => {
+  console.log(req.body)
+  
+  res.render('index')
+});
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+console.log(greet('John'));
