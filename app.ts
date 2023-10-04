@@ -6,6 +6,8 @@ import path from 'path';
 import express, { Request, Response } from 'express';
 import { Readable } from 'stream';
 
+import { parse } from 'date-fns';
+
 interface Annuity {
   DCFCode: string;
   Compounding: string;
@@ -104,6 +106,22 @@ interface DeferralData {
   to: Date;
   compoundFreq: number;
   paymentFreq: number;
+}
+
+interface YearEnd {
+    Date: string;
+    Value: number;
+    Aggregate: number;
+    YearlyInterest: number;
+    YearlyCumulative: number;
+}
+
+interface CfArray {
+    Date: Date;
+    Amount: number;
+    Kind: number;
+    stubPeriods: number;
+    stubDays: number;
 }
 
 
@@ -793,42 +811,6 @@ function amortizeYE(c: AnnuityArray, annuity: Annuity) {
 }
 
 // Continuing with other functions ...
-
-import { parse } from 'date-fns';
-
-interface YearEnd {
-    Date: string;
-    Value: number;
-    Aggregate: number;
-    YearlyInterest: number;
-    YearlyCumulative: number;
-}
-
-interface CfArray {
-    Date: Date;
-    Amount: number;
-    Kind: number;
-    stubPeriods: number;
-    stubDays: number;
-}
-
-interface AnnuityArray extends Array<CfArray> {}
-
-interface Answer {
-    AmSchedule: any[];
-    IsAmSchedule: boolean;
-}
-
-interface Annuity {
-    UseAmSchedule: boolean;
-    Compounding: string;
-    CashFlows: any[];
-    getYearEndValues: Function;
-}
-
-const FreqMap: any = {
-    // TODO: populate the actual mapping
-};
 
 export function YearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
     result.IsAmSchedule = annuity.UseAmSchedule;
