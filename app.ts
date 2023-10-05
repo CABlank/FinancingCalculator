@@ -112,14 +112,13 @@ interface ScheduleData {
   balance?: number;
   accruedInterest?: number;
   principal?: number;
-  //... any other properties that scheduleData may have
 }
 
 interface YearEnd {
   Date: string;
   Value: number;
-  Aggregate: number; // You can use the same name as in Go
-  YearlyDCFInterest?: number; // Use camelCase as per TypeScript naming conventions
+  Aggregate: number; 
+  YearlyDCFInterest?: number; 
   YearlyInterest: number;
   YearlyCumulative: number;
 }
@@ -339,20 +338,20 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
         Owner: v.Buyer,
         PmtNmbr: i,
         Freq: v.Frequency,
-        RootPmtPntr: [],  // initializing with empty array
-        DCF: 0,  // initializing with 0 value
-        Unknown: false,  // initializing with false
-        dcfStubPeriods: 0,  // initializing with 0 value
-        dcfStubDays: 0,  // initializing with 0 value
-        stubPeriods: 0,  // initializing with 0 value
-        stubDays: 0  // initializing with 0 value
+        RootPmtPntr: [],  
+        DCF: 0, 
+        Unknown: false,  
+        dcfStubPeriods: 0,  
+        dcfStubDays: 0, 
+        stubPeriods: 0, 
+        stubDays: 0 
     };
       console.log(`Updated AnnuityArray at index ${i}:`, aa[i]);
       i++;
 
       if ((j + 1) * pFreq % 12 === 0 && v.COLA !== 0 && j !== v.Number - 1) {
         tracker *= 1.0 + v.COLA;
-        amount = toFixed(tracker, 2); // Define toFixed function as needed
+        amount = toFixed(tracker, 2); 
       }
     }
   }
@@ -390,12 +389,12 @@ function parseDateFromString(timeString: string): Date {
 }
 
 function parseInvntoryDateFormat(d: string): Date {
-  const thisDate = new Date(d); // Assuming the input format is "yyyy-MM-dd"
+  const thisDate = new Date(d); 
   return thisDate;
 }
 
 function parseFBDateFormat(d: string): Date {
-  const thisDate = new Date(d); // Assuming the input format is "MM/dd/yyyy"
+  const thisDate = new Date(d); 
   return thisDate;
 }
 
@@ -405,8 +404,7 @@ function compareDates(now: Date, prior: Date): boolean {
 }
 
 
-// Assuming that dateutils.AddMonths is similar to date-fns's addMonths
-// and dateutils.DiffDays is similar to date-fns's differenceInDays
+
 
 function getInvestmentValue(annuity: Annuity): number {
   for (let cashFlow of annuity.CashFlows) {
@@ -422,7 +420,7 @@ function addMonths(date: Date, offset: number): Date {
   let dayOfMonth = date.getDate();
 
   if (dayOfMonth > 28) {
-    date = setDate(date, 28); // Ensures month doesn't spill over from addDate with dayOfMonth > 28
+    date = setDate(date, 28);
   }
 
   date.setMonth(date.getMonth() + offset);
@@ -544,7 +542,7 @@ function estimatePV(aa: CfArray[], rate: number): number {
         aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
         aa[i].DCF = toFixed(aa[i].DiscountFactor! * aa[i].Amount, 2);
         pvEstimate += aa[i].DCF!;
-        // Use the non-null assertion operator (!) to tell TypeScript that DCF is not null/undefined
+
       }
     }
   }
@@ -566,8 +564,7 @@ function setStubs(aa: CfArray[], annuity: Annuity): void {
   for (let i = 0; i < aa.length; i++) {
       const v = aa[i];
       if (i === 0 || aa[0].Date === v.Date) {
-          // Assuming that `stubDays`, `stubPeriods`, `dcfStubDays`, `dcfStubPeriods` are properties of `AnnuityArrayItem`
-          // If not, you need to adjust this part accordingly.
+
           aa[i].stubDays = aa[i].stubPeriods = aa[i].dcfStubDays = aa[i].dcfStubPeriods = 0;
           continue;
       }
@@ -730,9 +727,9 @@ function createAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, su
   result.AmSchedule[lastElement].Balance = 0;
 
   roundFirstDCFPayment(result, annuity);
-  // dcfBalances(result); // If you have this function, you can uncomment this
 
-  result.AmSchedule = insertSchedTotals(result); // Assuming you have this function somewhere
+
+  result.AmSchedule = insertSchedTotals(result); 
 
   annuity.Aggregate = result.AmSchedule[result.AmSchedule.length - 1].Payment;
 
@@ -778,8 +775,6 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
   return amSchedReturnVals(data, AnnuityArrayAtIndex, index);
 }
 
-// Placeholder for any missing functions or types, like `toFixed`, `insertSchedTotals`, `FreqMap`, `AnnuityArray`, `CfArray`, etc.
-// You'd need to define or replace them accordingly.
 
 function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, index: number): Schedule {
   const s: Schedule = {
@@ -885,7 +880,6 @@ function insertSchedTotals(result: Answer): Schedule[] {
   return result.AmSchedule;
 }
 
-// Assuming you have defined `amortize` function already in TypeScript.
 function amortizeYE(c: AnnuityArray, annuity: Annuity) {
   let min: number = -100000000;
   let max: number = 100000000;
@@ -901,7 +895,7 @@ function amortizeYE(c: AnnuityArray, annuity: Annuity) {
   }
 }
 
-// Continuing with other functions ...
+
 
 function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
     result.IsAmSchedule = annuity.UseAmSchedule;
@@ -1024,7 +1018,6 @@ function getDCFYearlyInterest(year: number, result: Answer): number {
 }
 
 
-// Assuming you've already defined `FreqMap` and `toFixed` function in TypeScript.
 
 function aggregate(frequency: string, numberPmts: number, amount: number, cola: number): number {
   if (cola !== 0 && FreqMap[frequency] !== 0) {
@@ -1074,7 +1067,6 @@ const mockAnnuity: Annuity = {
       Unknown: false,
       Escrow: true
     }
-    //... you can add more CashFlow objects if needed
   ],
   Carrier: "DUMMY_CARRIER",
   Aggregate: 1.6,
