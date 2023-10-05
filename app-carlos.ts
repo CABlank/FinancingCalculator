@@ -1,80 +1,122 @@
-interface CashFlow {
-  first: string; 
-  caseCode: string;
-  parentChild: boolean;
-  buyer: string;
-  cfType: string; 
-  last: Date;
-  number: number;
-  amount: number;
-  frequency: string;
-  COLA: number;
-  colaPeriods: number;
-  unknown: boolean;
-  escrow: boolean;
+interface DeferralData {
+  pvDate: Date;
+  from: Date;
+  to: Date;
+  compoundFreq: number;
+  paymentFreq: number;
 }
 
 interface CfArray {
-  rowID: number;
-  date: Date;
-  formattedDate: string;
-  amount: number;
-  kind: number;
-  escrow: boolean;
-  caseCode: string;
-  pmtNmbr: number;
-  freq: string;
-  owner: string;
-  // Added stub values as they were present in the Go struct but not in your TypeScript code.
-  dcfStubPeriods?: number;  // optional because it wasn't in your original TypeScript interface
-  dcfStubDays?: number;     // optional because it wasn't in your original TypeScript interface
-  stubPeriods?: number;     // optional because it wasn't in your original TypeScript interface
-  stubDays?: number;        // optional because it wasn't in your original TypeScript interface
-  compounding: string;
+  RowID: number;
+  Date: Date;
+  Amount: number;
+  Kind: number;
+  Freq: string;
+  dcfStubPeriods?: number;
+  dcfStubDays?: number;
+  stubPeriods?: number;
+  stubDays?: number;
+  PmtNmbr?: number;
+  RootPmtPntr?: number[];
+  CaseCode?: string;
+  DiscountFactor?: number;
+  DCF?: number;
+  Escrow?: boolean;
+  Unknown?: boolean;
+  Owner?: string;
 }
 
 type AnnuityArray = CfArray[];
 
+interface Answer {
+  PV: number;
+  Rate: number;
+  UnknownRow: number;
+  Answer: number;
+  WAL: number;
+  Term: number;
+  IsAmSchedule: boolean;
+  AmSchedule: Schedule[];
+  YeValuations: YearEnd[];
+  DCFpv?: number;
+  DCFRounding?: number;
+  HWMark?: number;
+  HWMarkDate?: string;
+  TotalPayout?: number;
+  IsPmtSchedule?: boolean;
+}
+
+interface CashFlow {
+  CfType: string;
+  First: string;
+  Number: number;
+  Amount: number;
+  Frequency: string;
+  COLA: number;
+  ColaPeriods?: number;
+  CaseCode?: string;
+  ParentChild?: string;
+  Buyer?: string;
+  Last?: string;
+  Unknown?: boolean;
+  Escrow?: boolean;
+}
 
 interface Annuity {
-  dcfCode?: string; // <-- The '?' makes it optional 
-  effective?: number;
-  nominal?: number;
-  label?: string;
-  dailyRate?: number;
-  desc?: string;
-  type?: string;
-  unknown?: boolean;
-  useAmSchedule?: boolean;
-  estimateDCF: number;
-  asOf: Date; // converted time.Time to Date for TS
-  cashFlows: CashFlow[];
-  carrier: string;
-  aggregate: number;
-  customCF: boolean;
-  documentRecipient: string;
-  compounding: string;
-  
+  Compounding: string;
+  CashFlows: CashFlow[];
+  DCFCode?: string;
+  Effective?: number;
+  Nominal?: number;
+  Label?: string;
+  DailyRate?: number;
+  Desc?: string;
+  Type?: string;
+  Unknown?: boolean;
+  UseAmSchedule?: boolean;
+  EstimateDCF?: number;
+  AsOf?: Date;
+  Carrier?: string;
+  Aggregate?: number;
+  CustomCF?: boolean;
+  DocumentRecipient?: string;
 }
 
-
-
-
-interface Answer {
-  unknownRow?: number;
-  answer?: number;
-  PV?: number;
-  DCFpv?: number;
+interface Schedule {
+  Type: string;
+  Date: string;
+  Payment: number;
+  Principal?: number;
+  Interest?: number;
+  DCFPrincipal?: number;
+  DCFInterest?: number;
+  DCFBalance?: number;
+  Balance?: number;
 }
+
+interface YearEnd {
+  Date: string;
+  Value: number;
+  Aggregate?: number;
+  YearlyDCFInterest?: number;
+  YearlyInterest?: number;
+  YearlyCumulative?: number;
+}
+
+interface TVMDataConverter {
+  convertTVMDate(): CashFlow[];
+}
+
 
 
 const FreqMap: { [key: string]: number } = {
-  "Monthly": 1,
-  "Quarterly": 3,
-  "Semi-Annually": 6,
-  "Annually": 12
-  // ... add other frequencies if needed
+  Monthly: 12,
+  Quarterly: 4,
+  SemiAnnual: 2,
+  Annual: 1,
+  Payment: 0,
 };
+
 
 
 function NewCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date | undefined] {
