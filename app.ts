@@ -962,7 +962,6 @@ function getYearEndValues(annuity: Annuity, finalPaymentDate: Date, c: CfArray[]
             continue;
         }
 
-        // Create a partial entry first
         const newEntry: Partial<CfArray> = {
             Date: yeStartDate,
             Amount: 0,
@@ -971,13 +970,11 @@ function getYearEndValues(annuity: Annuity, finalPaymentDate: Date, c: CfArray[]
             stubDays: 0
         };
 
-        // Assign default values to the missing properties
-        newEntry.RowID = newEntry.RowID || 0; // or some default value
-        newEntry.PmtNmbr = newEntry.PmtNmbr || 0; // or some default value
-        newEntry.CaseCode = newEntry.CaseCode || ''; // or some default value
-        // ... (add other properties as needed)
+        newEntry.RowID = newEntry.RowID || 0; 
+        newEntry.PmtNmbr = newEntry.PmtNmbr || 0; 
+        newEntry.CaseCode = newEntry.CaseCode || ''; 
 
-        c.splice(0, i + 1, newEntry as CfArray); // Use type assertion to reassure TypeScript
+        c.splice(0, i + 1, newEntry as CfArray); 
         break;
     }
       cumulative += aggregate;
