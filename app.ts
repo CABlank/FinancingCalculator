@@ -138,24 +138,7 @@ const FreqMap: { [key: string]: number } = {
 };
 
 
-const app = express();
-const port = process.env.PORT || 3000;
-app.set('view engine', 'ejs');
 
-async function calculator(req: Request, res: Response) {
-  try {
-    const result = await calc(req, true);
-
-    // Sending JSON response
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(result);
-  } catch (err) {
-    if (err instanceof Error) {
-      console.error(err);
-      res.status(403).send(err.message);
-    }
-  }
-}
 
 async function calc(req: Request, schedule: boolean): Promise<{ answer: Answer | Error | null; annuity: Annuity | undefined; error: Answer | Error | null }> {
   const result: { answer: Answer | Error | null; annuity: Annuity | undefined; error: Answer | Error | null } = {
