@@ -9,7 +9,7 @@ import { Readable } from 'stream';
 import { parse } from 'date-fns';
 
 interface DeferralData {
-  pvDate: Date;
+  pvDate?: Date;
   from: Date;
   to: Date;
   compoundFreq: number;
@@ -18,84 +18,88 @@ interface DeferralData {
 
 interface CfArray {
   RowID: number;
+  PmtNmbr: number;
+  RootPmtPntr: number[];
+  CaseCode: string;
   Date: Date;
   Amount: number;
-  Kind: number;
-  Freq: string;
-  dcfStubPeriods?: number;
-  dcfStubDays?: number;
-  stubPeriods?: number;
-  stubDays?: number;
-  PmtNmbr?: number;
-  RootPmtPntr?: number[];
-  CaseCode?: string;
   DiscountFactor?: number;
-  DCF?: number;
-  Escrow?: boolean;
-  Unknown?: boolean;
-  Owner?: string;
+  DCF: number;
+  Kind: number;
+  Escrow: boolean;
+  Unknown: boolean;
+  Freq: string;
+  Owner: string;
+  dcfStubPeriods: number;
+  dcfStubDays: number;
+  stubPeriods: number;
+  stubDays: number;
 }
 
 type AnnuityArray = CfArray[];
 
 interface Answer {
   PV: number;
+  DCFpv: number;
+  DCFRounding: number;
   Rate: number;
-  UnknownRow: number;
+  UnknownRow: number; 
   Answer: number;
+  Rounding: number;
   WAL: number;
+  HWMark: number; 
+  HWMarkDate: string; 
   Term: number;
-  IsAmSchedule: boolean;
-  AmSchedule: Schedule[];
-  YeValuations: YearEnd[];
-  DCFpv?: number;
-  DCFRounding?: number;
-  HWMark?: number;
-  HWMarkDate?: string;
-  TotalPayout?: number;
-  IsPmtSchedule?: boolean;
+  IsAmSchedule: boolean; 
+  TotalPayout: number; 
+  isPmtSchedule: boolean;
+  AmSchedule: Schedule[]; 
+  YeValuations: YearEnd[]; 
 }
 
 interface CashFlow {
+  CaseCode: string;
+  ParentChild: string;
+  Buyer: string;
   CfType: string;
   First: string;
+  Last: string;
   Number: number;
   Amount: number;
   Frequency: string;
   COLA: number;
-  ColaPeriods?: number;
-  CaseCode?: string;
-  ParentChild?: string;
-  Buyer?: string;
-  Last?: string;
-  Unknown?: boolean;
-  Escrow?: boolean;
+  ColaPeriods: number;
+  Unknown: boolean;
+  Escrow: boolean;
 }
+
 
 interface Annuity {
+  DCFCode: string;
   Compounding: string;
+  Effective: number;
+  Nominal: number;
+  Label: string;
+  DailyRate: number;
+  Desc: string;
+  Type: string;
+  Unknown: boolean;
+  UseAmSchedule: boolean;
+  EstimateDCF: number;
+  AsOf: Date;
   CashFlows: CashFlow[];
-  DCFCode?: string;
-  Effective?: number;
-  Nominal?: number;
-  Label?: string;
-  DailyRate?: number;
-  Desc?: string;
-  Type?: string;
-  Unknown?: boolean;
-  UseAmSchedule?: boolean;
-  EstimateDCF?: number;
-  AsOf?: Date;
-  Carrier?: string;
-  Aggregate?: number;
-  CustomCF?: boolean;
-  DocumentRecipient?: string;
+  Carrier: string;
+  Aggregate: number;
+  CustomCF: boolean;
+  DocumentRecipient: string;
 }
 
+
 interface Schedule {
-  Type: string;
+  Type?: string;
   Date: string;
   Payment: number;
+  Cashflow?: number;
   Principal?: number;
   Interest?: number;
   DCFPrincipal?: number;
@@ -104,17 +108,19 @@ interface Schedule {
   Balance?: number;
 }
 
+interface ScheduleData {
+  balance?: number;
+  accruedInterest?: number;
+  principal?: number;
+}
+
 interface YearEnd {
   Date: string;
   Value: number;
-  Aggregate?: number;
-  YearlyDCFInterest?: number;
-  YearlyInterest?: number;
-  YearlyCumulative?: number;
-}
-
-interface TVMDataConverter {
-  convertTVMDate(): CashFlow[];
+  Aggregate: number; 
+  YearlyDCFInterest?: number; 
+  YearlyInterest: number;
+  YearlyCumulative: number;
 }
 
 
