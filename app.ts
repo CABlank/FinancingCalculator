@@ -331,7 +331,7 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
     for (let j = 0; j < v.Number; j++) {
       aa[i] = {
         RowID: row,
-        Date: dateutils.AddMonths(firstPaymentDate, j * pFreq),
+        Date: addMonths(firstPaymentDate, j * pFreq),
         Amount: amount,
         Kind: cfType,
         Escrow: escrow,
@@ -948,59 +948,72 @@ function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): Yea
     return ye;
 }
 
-function getYearEndValues(annuity: Annuity,finalPaymentDate: Date, c: CfArray[], aggregate: number, cumulative: number, thisYear: number, pFreq: number, compounding: number, yeIndex: number, startYear: number, ye: YearEnd[], result: Answer): [CfArray[], number, number, number] {
-    const yeStartDate = parse(`12/31/${thisYear}`, 'MM/dd/yyyy', new Date());
 
-    if (yeStartDate < finalPaymentDate) {
-        for (let i = 0; i < c.length; i++) {
-            if (c[i + 1].Date < yeStartDate) {
-                if (c[i + 1].Kind !== -1) {
-                    aggregate += c[i + 1].Amount;
-                }
-                c[i] = null!;
-                continue;
+function getYearEndValues(annuity: Annuity, finalPaymentDate: Date, c: CfArray[], aggregate: number, cumulative: number, thisYear: number, pFreq: number, compounding: number, yeIndex: number, startYear: number, ye: YearEnd[], result: Answer): [CfArray[], number, number, number] {
+  const yeStartDate = parse(`12/31/${thisYear}`, 'MM/dd/yyyy', new Date());
+
+  if (yeStartDate < finalPaymentDate) {
+    for (let i = 0; i < c.length; i++) {
+        if (c[i + 1].Date < yeStartDate) {
+            if (c[i + 1].Kind !== -1) {
+                aggregate += c[i + 1].Amount;
             }
-            c.splice(0, i + 1, {
-                Date: yeStartDate,
-                Amount: 0,
-                Kind: -1,
-                stubPeriods: 0,
-                stubDays: 0
-            });
-            break;
-        }
-        cumulative += aggregate;
-        pFreq = FreqMap[annuity.CashFlows[c[1].RowID!].Frequency];
-
-        if (pFreq !== 0) {
-            pFreq = 12 / pFreq;
-        } else {
-            pFreq = compounding;
+            c[i] = null!;
+            continue;
         }
 
-        const deferral = {
-            from: c[0].Date,
-            to: c[1].Date,
-            compoundFreq: compounding,
-            paymentFreq: pFreq
+        // Create a partial entry first
+        const newEntry: Partial<CfArray> = {
+            Date: yeStartDate,
+            Amount: 0,
+            Kind: -1,
+            stubPeriods: 0,
+            stubDays: 0
         };
 
-        [c[1].stubDays, c[1].stubPeriods] = createStubs(deferral);
+        // Assign default values to the missing properties
+        newEntry.RowID = newEntry.RowID || 0; // or some default value
+        newEntry.PmtNmbr = newEntry.PmtNmbr || 0; // or some default value
+        newEntry.CaseCode = newEntry.CaseCode || ''; // or some default value
+        // ... (add other properties as needed)
 
-        amortizeYE(c, annuity);
-
-        yeIndex = yeStartDate.getFullYear() - startYear;
-        ye[yeIndex] = {
-            Date: thisYear.toString(),
-            Value: c[0].Amount,
-            Aggregate: aggregate,
-            YearlyInterest: getDCFYearlyInterest(thisYear, result),
-            YearlyCumulative: cumulative
-        };
-        aggregate = 0;
+        c.splice(0, i + 1, newEntry as CfArray); // Use type assertion to reassure TypeScript
+        break;
     }
+      cumulative += aggregate;
+      if (annuity.CashFlows[c[1].RowID!]) {
+          pFreq = FreqMap[annuity.CashFlows[c[1].RowID!].Frequency];
+      }
 
-    return [c, aggregate, cumulative, yeIndex];
+      if (pFreq !== 0) {
+          pFreq = 12 / pFreq;
+      } else {
+          pFreq = compounding;
+      }
+
+      const deferral = {
+          from: c[0].Date,
+          to: c[1].Date,
+          compoundFreq: compounding,
+          paymentFreq: pFreq
+      };
+
+      [c[1].stubDays, c[1].stubPeriods] = createStubs(deferral);
+
+      amortizeYE(c, annuity);
+
+      yeIndex = yeStartDate.getFullYear() - startYear;
+      ye[yeIndex] = {
+          Date: thisYear.toString(),
+          Value: c[0].Amount,
+          Aggregate: aggregate,
+          YearlyInterest: getDCFYearlyInterest(thisYear, result),
+          YearlyCumulative: cumulative
+      };
+      aggregate = 0;
+  }
+
+  return [c, aggregate, cumulative, yeIndex];
 }
 
 function getDCFYearlyInterest(year: number, result: Answer): number {
