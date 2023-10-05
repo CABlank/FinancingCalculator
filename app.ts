@@ -371,55 +371,71 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
   console.log("Returning from newCashflowArray with:", aa, asOf);
   return [aa, asOf];
 }
-
 function getAnnuityPV(aa: AnnuityArray, d: Date): number {
+  console.log(`Searching for PV on date: ${d}`);
   for (let i = 0; i < aa.length; i++) {
     if (aa[i].Date.getTime() === d.getTime() && aa[i].Kind === -1) {
+      console.log(`Found PV of ${aa[i].Amount} on date ${d}`);
       return aa[i].Amount;
     }
   }
+  console.log(`No PV found on date ${d}`);
   return 0;
 }
 
 function parseDateFromString(timeString: string): Date {
+  console.log(`Parsing date from string: ${timeString}`);
+  let resultDate;
   if (timeString.includes("-")) {
-    return parseInvntoryDateFormat(timeString);
+    resultDate = parseInvntoryDateFormat(timeString);
+  } else {
+    resultDate = parseFBDateFormat(timeString);
   }
-  return parseFBDateFormat(timeString);
+  console.log(`Resulting date: ${resultDate}`);
+  return resultDate;
 }
 
 function parseInvntoryDateFormat(d: string): Date {
-  const thisDate = new Date(d); 
+  console.log(`Parsing date using Inventory format: ${d}`);
+  const thisDate = new Date(d);
+  console.log(`Parsed Inventory date: ${thisDate}`);
   return thisDate;
 }
 
 function parseFBDateFormat(d: string): Date {
-  const thisDate = new Date(d); 
+  console.log(`Parsing date using FB format: ${d}`);
+  const thisDate = new Date(d);
+  console.log(`Parsed FB date: ${thisDate}`);
   return thisDate;
 }
 
 function compareDates(now: Date, prior: Date): boolean {
+  console.log(`Comparing dates: Now=${now} Prior=${prior}`);
   const compared = prior > now;
+  console.log(`Is Prior greater than Now? ${compared}`);
   return compared;
 }
 
-
-
-
 function getInvestmentValue(annuity: Annuity): number {
+  console.log(`Searching for investment value in annuity...`);
   for (let cashFlow of annuity.CashFlows) {
     if (cashFlow.CfType === "Invest") {
+      console.log(`Found investment value: ${cashFlow.Amount}`);
       return cashFlow.Amount;
     }
   }
+  console.log("No investment value found.");
   return 0;
 }
 
 function addMonths(date: Date, offset: number): Date {
+  console.log(`Adding ${offset} months to date ${date}`);
   const tDate = new Date(date);
   let dayOfMonth = date.getDate();
+  console.log(`Day of the month: ${dayOfMonth}`);
 
   if (dayOfMonth > 28) {
+    console.log("Adjusting day to 28 due to month end");
     date = setDate(date, 28);
   }
 
@@ -429,38 +445,50 @@ function addMonths(date: Date, offset: number): Date {
     dayOfMonth === daysInMonth(tDate.getFullYear(), tDate.getMonth() + 1) ||
     dayOfMonth > daysInMonth(date.getFullYear(), date.getMonth() + 1)
   ) {
+    console.log(`Setting date to the last day of the month.`);
     return setDate(date, daysInMonth(date.getFullYear(), date.getMonth() + 1));
   }
 
+  console.log(`Final date after adding months: ${date}`);
   return setDate(date, dayOfMonth);
 }
 
 function setDate(date: Date, day: number): Date {
+  console.log(`Setting date: ${date} to day: ${day}`);
   return new Date(date.getFullYear(), date.getMonth(), day, 0, 0, 0, 0);
 }
 
 function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
+  console.log(`Calculating days in month for: Year=${year}, Month=${month}`);
+  const days = new Date(year, month, 0).getDate();
+  console.log(`Days in month: ${days}`);
+  return days;
 }
 
 function lastPaymentDate(firstPaymentDate: Date, numberPmts: number, frequency: string): Date {
-  if (!FreqMap[frequency]) {
-    return firstPaymentDate;
-  }
-  return addMonths(firstPaymentDate, (numberPmts - 1) * (12 / FreqMap[frequency]));
+  console.log(`Calculating last payment date. Starting from: ${firstPaymentDate}, Number of payments: ${numberPmts}, Frequency: ${frequency}`);
+  const result = FreqMap[frequency] ? addMonths(firstPaymentDate, (numberPmts - 1) * (12 / FreqMap[frequency])) : firstPaymentDate;
+  console.log(`Calculated last payment date: ${result}`);
+  return result;
 }
 
 function paymentCount(cfs: CashFlow[]): number {
-  return cfs.reduce((sum, cf) => sum + cf.Number, 0);
+  console.log("Counting payments...");
+  const count = cfs.reduce((sum, cf) => sum + cf.Number, 0);
+  console.log(`Total payments: ${count}`);
+  return count;
 }
 
 function stringifyWalTerm(r: Answer): [string, string] {
+  console.log("Converting WAL and Term to strings...");
   const termString = r.Term.toFixed(1);
   const walString = r.WAL.toFixed(1);
+  console.log(`Converted: Term=${termString}, WAL=${walString}`);
   return [termString, walString];
 }
 
 function calcWAL(aa: AnnuityArray, aggregate: number): number {
+  console.log("Calculating WAL...");
   let walAgg = 0;
   let dayDiff: number;
   let walDate: Date | null = null;
@@ -486,6 +514,7 @@ function calcWAL(aa: AnnuityArray, aggregate: number): number {
 }
 
 function calcWALWithAggregate(aa: CfArray[], aggregate: number): number {
+  console.log("Calculating WAL with aggregate...");
   let walAgg = 0;
   let dayDiff: number;
   let walDate: Date | null = null;
@@ -504,32 +533,40 @@ function calcWALWithAggregate(aa: CfArray[], aggregate: number): number {
 }
 
 function nominal(rate: number): number {
+  console.log(`Calculating nominal for rate: ${rate}`);
   return 12.0 * (Math.pow(rate + 1.0, 1.0 / 12.0) - 1.0);
 }
 
 function effective(rate: number): number {
+  console.log(`Calculating effective for rate: ${rate}`);
   return Math.pow(1.0 + (rate / 12), 12) - 1;
 }
 
 function aaAggregate(aa: CfArray[]): number {
+  console.log("Calculating aggregate for CfArray");
   return aa.reduce((agg, v) => v.Kind === 1 ? agg + v.Amount : agg, 0);
 }
 
 function getInvestmentDate(aa: CfArray[]): Date {
+  console.log("Retrieving investment date...");
   for (let item of aa) {
+    console.log(`Investment date found: ${item.Date}`);
     if (item.Kind === -1) {
       return item.Date;
     }
   }
+  console.log(`No specific investment date found. Returning last date in array: ${aa[aa.length - 1].Date}`);
   return aa[aa.length - 1].Date;
 }
 
 function diffDays(a: Date, b: Date): number {
+  console.log(`Calculating difference in days between ${a} and ${b}`);
   const difference = a.getTime() - b.getTime();
   return Math.floor(difference / (1000 * 3600 * 24));
 }
 
 function estimatePV(aa: CfArray[], rate: number): number {
+  console.log("Estimating present value (PV)...");
   let pvEstimate = 0;
   const pvDate = getInvestmentDate(aa);
   for (let i = 0; i < aa.length; i++) {
@@ -542,14 +579,16 @@ function estimatePV(aa: CfArray[], rate: number): number {
         aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
         aa[i].DCF = toFixed(aa[i].DiscountFactor! * aa[i].Amount, 2);
         pvEstimate += aa[i].DCF!;
-
+        console.log(`i=${i}, dcfStubPeriods=${v.dcfStubPeriods}, dcfStubDays=${v.dcfStubDays}, DiscountFactor=${aa[i].DiscountFactor}, DCF=${aa[i].DCF}, pvEstimate=${pvEstimate}`);
       }
     }
   }
+  console.log(`Final estimated PV: ${pvEstimate}`);
   return pvEstimate;
 }
 
 function setStubs(aa: CfArray[], annuity: Annuity): void {
+  console.log("Setting stubs...");
   const compounding: number = 12 / FreqMap[annuity.Compounding];
   let payPeriod: number;
 
@@ -564,7 +603,7 @@ function setStubs(aa: CfArray[], annuity: Annuity): void {
   for (let i = 0; i < aa.length; i++) {
       const v = aa[i];
       if (i === 0 || aa[0].Date === v.Date) {
-
+        console.log(`Setting initial stubs for index ${i}`);
           aa[i].stubDays = aa[i].stubPeriods = aa[i].dcfStubDays = aa[i].dcfStubPeriods = 0;
           continue;
       }
@@ -592,6 +631,7 @@ function setStubs(aa: CfArray[], annuity: Annuity): void {
 }
 
 function createStubs(data: DeferralData): [number, number] {
+  console.log("Creating stubs...");
   let countMonths = data.to.getMonth() - data.from.getMonth() + (12 * (data.to.getFullYear() - data.from.getFullYear()));
   if (countMonths !== 0) {
       if (data.to.getDate() < data.from.getDate()) {
@@ -604,14 +644,18 @@ function createStubs(data: DeferralData): [number, number] {
   const countPeriods = Math.floor(countMonths / data.compoundFreq);
   const dt = addMonths(data.to, -countPeriods * data.compoundFreq);
   const stubDays = diffDays(dt, data.from);
+  console.log(`Stub days: ${stubDays}, Count periods: ${countPeriods}`);
   return [stubDays, countPeriods];
 }
 
 async function amortizeRate(aa: AnnuityArray, annuity: Annuity): Promise<[number, Error | null]> {
+  console.log("Amortizing rate...");
   let guess = 0, balance = 0, min = -1, max = 1;
   while (max - min > 0.0000001) {
       guess = (min + max) / 2;
+      console.log(`Current guess: ${guess}`);
       if (min > 0.99999 || max < -0.99999) {
+        console.warn(`Interest rate out of range with guessed rate = ${guess} and annuity pv = ${annuity.CashFlows[0].Amount}`);
           return [0, new Error(`interest rate out of range error with guessed rate = ${guess} and annuity pv = ${annuity.CashFlows[0].Amount}`)];
       }
       annuity.Nominal = guess;
@@ -623,10 +667,12 @@ async function amortizeRate(aa: AnnuityArray, annuity: Annuity): Promise<[number
           min = guess;
       }
   }
+  console.log(`Final guess for rate: ${guess}`);
   return [guess, null];
 }
 
 async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number): Promise<[number, Error | null]> {
+  console.log("Amortizing cash flow...");
   let guess = 0, floor = -10000000, ceiling = 10000000, iterations = 0;
   let min: number, max: number;
   if (annuity.CashFlows[unknownRow].CfType === "Invest") {
@@ -641,7 +687,9 @@ async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number
   while (max - min > 0.001) {
       iterations++;
       guess = (min + max) / 2;
+      console.log(`Iteration ${iterations}, Current guess: ${guess}`);
       if (max < floor + 0.01 || min > ceiling - 0.01) {
+          console.warn("ERROR - the cash flow has iterated beyond the max/min range - check that your variables are correct");
           return [0, new Error("ERROR - the cash flow has iterated beyond the max/min range - check that your variables are correct")];
       }
       updateAnnuity(aa, guess, annuity, unknownRow);
@@ -661,22 +709,26 @@ async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number
 
 function amortize(aa: AnnuityArray, annuity: Annuity): number {
   let interest = 0, balance = 0;
+  console.log("Starting amortization...");
   for (const v of aa) {
       interest = v.stubDays! * annuity.DailyRate * balance;
       balance += interest;
       balance *= Math.pow(1 + annuity.Nominal / FreqMap[annuity.Compounding], v.stubPeriods!);
       balance -= v.Amount * v.Kind;
+      console.log(`Interest: ${interest}, Balance: ${balance}`);
   }
   return balance;
 }
 
 function updateAnnuity(aa: AnnuityArray, guess: number, annuity: Annuity, row: number) {
+  console.log(`Updating annuity with guess: ${guess}`);
   let paymentsRemaining = annuity.CashFlows[row].Number;
   for (let i = 0; i < aa.length; i++) {
       if (aa[i].RowID === row) {
           const paymentsIndex = annuity.CashFlows[row].Number - paymentsRemaining;
           if (annuity.CashFlows[row].COLA !== 0 && paymentsIndex > 0 && paymentsIndex % annuity.CashFlows[row].ColaPeriods === 0) {
               guess *= 1 + annuity.CashFlows[row].COLA;
+              console.log(`Adjusting guess for COLA: ${guess}`);
           }
           aa[i].Amount = guess;
           paymentsRemaining--;
@@ -690,6 +742,7 @@ function updateAnnuity(aa: AnnuityArray, guess: number, annuity: Annuity, row: n
 function getUnknownRow(annuity: Annuity): number {
   for (let row = 0; row < annuity.CashFlows.length; row++) {
       if (annuity.CashFlows[row].Unknown) {
+        console.log(`Found unknown cashflow at row: ${row}`);
           return row;
       }
   }
@@ -698,16 +751,21 @@ function getUnknownRow(annuity: Annuity): number {
 }
 
 function round(num: number): number {
+  
   return Math.floor(num + 0.5);
 }
 
 function toFixed(num: number, precision: number): number {
   const output = Math.pow(10, precision);
-  return Math.round(num * output) / output;
+  const result = Math.round(num * output) / output;
+  console.log(`Rounding to fixed: ${num} to ${result}`);
+  return result;
 }
 
 function createAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, sum: number): Schedule[] {
+  console.log("Creating amortization schedule...");
   result.AmSchedule = new Array<Schedule>(sum);
+  console.log(`Initial AmSchedule length: ${result.AmSchedule.length}`);
   result.HWMark = 0;
   result.DCFRounding = result.DCFpv - result.PV;
 
@@ -716,6 +774,7 @@ function createAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, su
   }
 
   const lastElement = result.AmSchedule.length - 1;
+  console.log(`Last element index: ${lastElement}`);
 
   if (result.HWMarkDate === result.AmSchedule[lastElement].Date) {
       result.HWMark = result.AmSchedule[lastElement].Payment;
@@ -732,23 +791,26 @@ function createAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, su
   result.AmSchedule = insertSchedTotals(result); 
 
   annuity.Aggregate = result.AmSchedule[result.AmSchedule.length - 1].Payment;
-
+  console.log(`Aggregate: ${annuity.Aggregate}`);
   return result.AmSchedule;
 }
 
 function roundFirstDCFPayment(result: Answer, annuity: Annuity): void {
+  console.log("Rounding first DCF payment...");
   for (let i = 0; i < result.AmSchedule.length; i++) {
       const d = new Date(result.AmSchedule[i].Date);
 
       if (result.AmSchedule[i].Type === "Return" && d.getTime() !== annuity.AsOf.getTime()) {
           result.AmSchedule[i].DCFPrincipal! += toFixed(result.PV - result.DCFpv, 2);
           result.AmSchedule[i].DCFInterest! -= toFixed(result.PV - result.DCFpv, 2);
+          console.log(`Adjusted DCFPrincipal at index ${i}: ${result.AmSchedule[i].DCFPrincipal}`);
           break;
       }
   }
 }
 
 function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Answer): Schedule {
+  console.log(`Processing schedRow for index: ${index}`);
   const data: ScheduleData = {};
   const AnnuityArrayAtIndex = aa[index];
 
@@ -757,6 +819,7 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
   }
 
   const previousBalance = result.AmSchedule[index - 1].Balance!;
+  console.log(`Previous balance: ${previousBalance}`);
   const stubInterest = AnnuityArrayAtIndex.stubDays! * annuity.DailyRate * previousBalance;
 
   data.balance = stubInterest + previousBalance;
@@ -765,18 +828,20 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
   if (result.HWMark < data.balance) {
       result.HWMark = data.balance!;
       result.HWMarkDate = (new Date(AnnuityArrayAtIndex.Date)).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit', year: 'numeric' });
+      console.log(`Updated HWMarkDate: ${result.HWMarkDate}`);
   }
 
   data.accruedInterest = data.balance! - previousBalance;
   data.balance -= AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind;
   data.balance = toFixed(data.balance!, 2);
-
+  console.log(`Accrued interest: ${data.accruedInterest}, New balance: ${data.balance}`);
   data.principal = toFixed(previousBalance - data.balance!, 2);
   return amSchedReturnVals(data, AnnuityArrayAtIndex, index);
 }
 
 
 function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, index: number): Schedule {
+  console.log(`Processing amSchedReturnVals for index: ${index}`);
   const s: Schedule = {
     Date: AnnuityArrayAtIndex.Date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
     Payment: AnnuityArrayAtIndex.Amount,
@@ -809,6 +874,7 @@ function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, ind
 
 
 function insertSchedTotals(result: Answer): Schedule[] {
+  console.log("Inserting schedule totals...");
   let empty: Schedule;
   let i: number = 0;
   let year: string = result.AmSchedule[0].Date.slice(-4);
@@ -881,6 +947,7 @@ function insertSchedTotals(result: Answer): Schedule[] {
 }
 
 function amortizeYE(c: AnnuityArray, annuity: Annuity) {
+      console.log("Executing year end amortization...");
   let min: number = -100000000;
   let max: number = 100000000;
 
@@ -898,6 +965,7 @@ function amortizeYE(c: AnnuityArray, annuity: Annuity) {
 
 
 function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): YearEnd[] {
+  console.log("Generating year-end summary...");
     result.IsAmSchedule = annuity.UseAmSchedule;
     const finalPaymentDate = aa[aa.length - 1].Date;
     const finalYear = finalPaymentDate.getFullYear();
@@ -944,6 +1012,7 @@ function yearEndSummary(aa: AnnuityArray, annuity: Annuity, result: Answer): Yea
 
 
 function getYearEndValues(annuity: Annuity, finalPaymentDate: Date, c: CfArray[], aggregate: number, cumulative: number, thisYear: number, pFreq: number, compounding: number, yeIndex: number, startYear: number, ye: YearEnd[], result: Answer): [CfArray[], number, number, number] {
+  console.log("Fetching year-end values for year:", thisYear);
   const yeStartDate = parse(`12/31/${thisYear}`, 'MM/dd/yyyy', new Date());
 
   if (yeStartDate < finalPaymentDate) {
@@ -1008,6 +1077,7 @@ function getYearEndValues(annuity: Annuity, finalPaymentDate: Date, c: CfArray[]
 }
 
 function getDCFYearlyInterest(year: number, result: Answer): number {
+  console.log("Fetching DCF yearly interest for year:", year);
     const y = year.toString();
     for (const item of result.AmSchedule) {
         if (item.Type!.indexOf(y) > -1) {
@@ -1020,6 +1090,7 @@ function getDCFYearlyInterest(year: number, result: Answer): number {
 
 
 function aggregate(frequency: string, numberPmts: number, amount: number, cola: number): number {
+  console.log("Aggregating for frequency:", frequency);
   if (cola !== 0 && FreqMap[frequency] !== 0) {
       let aggregate: number = 0;
       const colaPeriods: number = FreqMap[frequency];
