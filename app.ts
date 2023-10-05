@@ -62,7 +62,7 @@ interface CashFlow {
   ParentChild: string;
   Buyer: string;
   CfType: string;
-  First: string;
+  FirstpaymentDate: string;
   Last: string;
   Number: number;
   Amount: number;
@@ -297,7 +297,7 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
 
   for (let row = 0; row < pmts.length; row++) {
     const v = pmts[row];
-    firstPaymentDate = parseDateFromString(v.First);
+    firstPaymentDate = parseDateFromString(v.FirstpaymentDate);
     let amount = v.Amount;
     let tracker = amount;
 
@@ -796,7 +796,7 @@ function createAmSchedule(result: Answer, aa: AnnuityArray, annuity: Annuity, su
 }
 
 function roundFirstDCFPayment(result: Answer, annuity: Annuity): void {
-  console.log("Rounding first DCF payment...");
+  console.log("Rounding FirstpaymentDate DCF payment...");
   for (let i = 0; i < result.AmSchedule.length; i++) {
       const d = new Date(result.AmSchedule[i].Date);
 
@@ -1112,9 +1112,9 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
 const mockAnnuity: Annuity = {
   CashFlows: [
     {
-        cftype: "Invest",
+      CfType: "Invest",
         dcfPaymentDescription: "monthly payments",
-        firstpaymentDate: "10/05/2023",
+      FirstpaymentDate: "10/05/2023",
         dcfEndDate: null,
         numpayments: 1,
         amount: 0,
@@ -1122,13 +1122,12 @@ const mockAnnuity: Annuity = {
         dcfCOLA: "",
         cola: 0,
         unknown: true,
-        dcfStartDate: "10/05/2023",
         oldAmount: "0.00"
     },
     {
-        cftype: "Return",
+      CfType: "Return",
         dcfPaymentDescription: "monthly payments",
-        firstpaymentDate: "11/05/2023",
+      FirstpaymentDate: "11/05/2023",
         dcfEndDate: "04/05/2024",
         numpayments: 6,
         amount: 100,
@@ -1136,14 +1135,13 @@ const mockAnnuity: Annuity = {
         dcfCOLA: "",
         cola: 0,
         unknown: false,
-        dcfStartDate: "10/05/2023",
         oldAmount: "0.00"
     }
   ],
-    compounding: "Monthly",
-    effRate: 0,
-    nomRate: 0,
-    unknown: false,
+  compounding: "Monthly",
+  effRate: 0,
+  nomRate: 0,
+  unknown: false,
     
 }
 
