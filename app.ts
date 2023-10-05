@@ -1110,40 +1110,42 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
 
 
 const mockAnnuity: Annuity = {
-  DCFCode: "DUMMY_DCF",
-  Compounding: "Quarterly",
-  Effective: 1.2,
-  Nominal: 1.3,
-  Label: "DUMMY_LABEL",
-  DailyRate: 1.4,
-  Desc: "DUMMY_DESC",
-  Type: "DUMMY_TYPE",
-  Unknown: false,
-  UseAmSchedule: false,
-  EstimateDCF: 1.5,
-  AsOf: new Date(),
   CashFlows: [
     {
-      CaseCode: "TEST001",
-      ParentChild: "Parent",
-      Buyer: "John",
-      CfType: "Return",
-      First: "2023-01-01",
-      Last: "2023-12-31",
-      Number: 1,
-      Amount: 2000,
-      Frequency: "Monthly",
-      COLA: 0,
-      ColaPeriods: 1,
-      Unknown: false,
-      Escrow: true
+        cftype: "Invest",
+        dcfPaymentDescription: "monthly payments",
+        firstpaymentDate: "10/05/2023",
+        dcfEndDate: null,
+        numpayments: 1,
+        amount: 0,
+        pmtfreq: "Payment",
+        dcfCOLA: "",
+        cola: 0,
+        unknown: true,
+        dcfStartDate: "10/05/2023",
+        oldAmount: "0.00"
+    },
+    {
+        cftype: "Return",
+        dcfPaymentDescription: "monthly payments",
+        firstpaymentDate: "11/05/2023",
+        dcfEndDate: "04/05/2024",
+        numpayments: 6,
+        amount: 100,
+        pmtfreq: "Monthly",
+        dcfCOLA: "",
+        cola: 0,
+        unknown: false,
+        dcfStartDate: "10/05/2023",
+        oldAmount: "0.00"
     }
   ],
-  Carrier: "DUMMY_CARRIER",
-  Aggregate: 1.6,
-  CustomCF: false,
-  DocumentRecipient: "DUMMY_RECIPIENT"
-};
+    compounding: "Monthly",
+    effRate: 0,
+    nomRate: 0,
+    unknown: false,
+    
+}
 
 
 console.log(calcAnnuity(mockAnnuity, true));
