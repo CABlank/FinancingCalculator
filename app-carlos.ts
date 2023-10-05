@@ -139,7 +139,7 @@ function NewCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
 
 
 
-async function CalcAnnuity(annuity: Annuity): Promise<{ UnknownRow: number, Answer: number, Effective: number }> {
+function CalcAnnuity(annuity: Annuity): Promise<{ UnknownRow: number, Answer: number, Effective: number }> {
   let aa: AnnuityArray;
   let result = NewCashflowArray(annuity.cashFlows, annuity.compounding);
   aa = result[0];
@@ -161,18 +161,18 @@ async function CalcAnnuity(annuity: Annuity): Promise<{ UnknownRow: number, Answ
 
     annuity.effective = Effective(resultAnswer);
 
-    return {
+    return Promise.resolve({
       UnknownRow: -1,
       Answer: resultAnswer,
       Effective: annuity.effective
-    };
+    });
   }
 
-  return {
+  return Promise.resolve({
     UnknownRow: 0, // replace with actual value
     Answer: 0,     // replace with actual value
     Effective: 0   // replace with actual value
-};
+});
 }
 
 
@@ -335,5 +335,145 @@ const annuityData: Annuity = {
 };
 
 
-const result = CalcAnnuity(annuityData);
-console.log(result);
+
+
+/*CalcAnnuity(annuityData).then(result => {
+  console.log(result);
+});
+
+*/
+
+// Test Case 1: Simple Loan Repayment
+const annuityData1: Annuity = {
+  cashFlows: [
+    {
+      first: "2023-01-01",
+      amount: -1000,  // Borrowed amount
+      frequency: "Yearly",
+      cfType: "Loan",
+      number: 1,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,
+      last: new Date("2024-01-01"),
+      COLA: 0,
+      colaPeriods: 1,
+      unknown: false
+    },
+    {
+      first: "2024-01-01",
+      amount: 1100,  // Repayment amount
+      frequency: "Yearly",
+      cfType: "Return",
+      number: 1,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,
+      last: new Date("2024-01-01"),
+      COLA: 0,
+      colaPeriods: 1,
+      unknown: false
+    }
+  ],
+  compounding: "Monthly",
+  estimateDCF: 0,
+  asOf: new Date(),
+  carrier: "",
+  aggregate: 0,
+  customCF: false,
+  documentRecipient: ""
+};
+
+CalcAnnuity(annuityData1).then(result => {
+  console.log("Test Case 1 Result:");
+  console.log(result);
+});
+/*
+// Test Case 2: Monthly Payments with No Interest
+const annuityData2: Annuity = {
+  cashFlows: [
+    {
+      first: "2023-01-01",
+      amount: -1200,  // Borrowed amount
+      frequency: "Yearly",
+      cfType: "Loan",
+      number: 1,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,
+      last: new Date("2024-01-01"),
+      COLA: 0,
+      colaPeriods: 1,
+      unknown: false
+    },
+    {
+      first: "2023-01-01",
+      amount: 100,  // Monthly repayment
+      frequency: "Monthly",
+      cfType: "Return",
+      number: 12,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,
+      last: new Date("2024-01-01"),
+      COLA: 0,
+      colaPeriods: 1,
+      unknown: false
+    }
+  ],
+  //... the rest of your annuity data properties ...
+};
+
+// Test Case 3: Monthly Payments with Interest
+const annuityData3: Annuity = {
+  cashFlows: [
+    {
+      first: "2023-01-01",
+      amount: -1000,  // Borrowed amount
+      frequency: "Yearly",
+      cfType: "Loan",
+      number: 1,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,
+      last: new Date("2024-01-01"),
+      COLA: 0,
+      colaPeriods: 1,
+      unknown: false
+    },
+    {
+      first: "2023-01-01",
+      amount: 100,  // Monthly repayment
+      frequency: "Monthly",
+      cfType: "Return",
+      number: 12,
+      escrow: false,
+      caseCode: "",
+      buyer: "",
+      parentChild: false,
+      last: new Date("2024-01-01"),
+      COLA: 0,
+      colaPeriods: 1,
+      unknown: false
+    }
+  ],
+  //... the rest of your annuity data properties ...
+};
+
+// Running the tests
+
+*/
+/* CalcAnnuity(annuityData2).then(result => {
+  console.log("Test Case 2 Result:");
+  console.log(result);
+});
+
+CalcAnnuity(annuityData3).then(result => {
+  console.log("Test Case 3 Result:");
+  console.log(result);
+});*/

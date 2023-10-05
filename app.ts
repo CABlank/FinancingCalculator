@@ -8,6 +8,72 @@ import { Readable } from 'stream';
 
 import { parse } from 'date-fns';
 
+interface DeferralData {
+  pvDate?: Date;
+  from: Date;
+  to: Date;
+  compoundFreq: number;
+  paymentFreq: number;
+}
+
+interface CfArray {
+  RowID: number;
+  PmtNmbr: number;
+  RootPmtPntr: number[];
+  CaseCode: string;
+  Date: Date;
+  Amount: number;
+  DiscountFactor?: number;
+  DCF: number;
+  Kind: number;
+  Escrow: boolean;
+  Unknown: boolean;
+  Freq: string;
+  Owner: string;
+  dcfStubPeriods: number;
+  dcfStubDays: number;
+  stubPeriods: number;
+  stubDays: number;
+}
+
+type AnnuityArray = CfArray[];
+
+interface Answer {
+  PV: number;
+  DCFpv: number;
+  DCFRounding: number;
+  Rate: number;
+  UnknownRow: number; 
+  Answer: number;
+  Rounding: number;
+  WAL: number;
+  HWMark: number; 
+  HWMarkDate: string; 
+  Term: number;
+  IsAmSchedule: boolean; 
+  TotalPayout: number; 
+  isPmtSchedule: boolean;
+  AmSchedule: Schedule[]; 
+  YeValuations: YearEnd[]; 
+}
+
+interface CashFlow {
+  CaseCode: string;
+  ParentChild: string;
+  Buyer: string;
+  CfType: string;
+  First: string;
+  Last: string;
+  Number: number;
+  Amount: number;
+  Frequency: string;
+  COLA: number;
+  ColaPeriods: number;
+  Unknown: boolean;
+  Escrow: boolean;
+}
+
+
 interface Annuity {
   DCFCode: string;
   Compounding: string;
@@ -28,40 +94,7 @@ interface Annuity {
   DocumentRecipient: string;
 }
 
-interface CashFlow {
-  CaseCode: string;
-  ParentChild: string;
-  Buyer: string;
-  CfType: string;
-  First: string;
-  Last: string;
-  Number: number;
-  Amount: number;
-  Frequency: string;
-  COLA: number;
-  ColaPeriods: number;
-  Unknown: boolean;
-  Escrow: boolean;
-}
 
-interface Answer {
-  PV: number;
-  DCFpv: number;
-  DCFRounding: number;
-  Rate: number;
-  UnknownRow: number; // Note: In TypeScript, property names are case-sensitive, so "row" instead of "UnknownRow"
-  Answer: number;
-  Rounding: number;
-  WAL: number;
-  HWMark: number; // Note: In TypeScript, property names should use camelCase, so "hwmark" instead of "HWMark"
-  HWMarkDate: string; // Note: In TypeScript, property names should use camelCase, so "hwMarkDate" instead of "HWMarkDate"
-  Term: number;
-  IsAmSchedule: boolean; // Note: In TypeScript, property names should use camelCase, so "AmSchedule" instead of "AmSchedule"
-  TotalPayout: number; // Note: In TypeScript, property names should use camelCase, so "totalPayout" instead of "TotalPayout"
-  isPmtSchedule: boolean; // Note: In TypeScript, property names should use camelCase, so "isPmtSchedule" instead of "IsPmtSchedule"
-  AmSchedule: Schedule[]; // Assuming "Schedule" is another type you have defined
-  YeValuations: YearEnd[]; // Assuming "YearEnd" is another type you have defined
-}
 interface Schedule {
   Type?: string;
   Date: string;
@@ -91,56 +124,9 @@ interface YearEnd {
   YearlyCumulative: number;
 }
 
-// interface AnnuityArrayItem {
-//   RowID: number;
-//   Date: Date;
-//   Amount: number;
-//   Kind: number;
-//   Escrow: boolean;
-//   DCF: string;
-//   CaseCode: string;
-//   DiscountFactor?: string;
-//   Owner: string;
-//   PmtNmbr: number;
-//   Freq: string;
-//   stubDays?: number;
-//   dcfStubPeriods?: number
-// 	dcfStubDays?: number
-// 	stubPeriods?: number
-// }
 
-interface Annuity {
-  Compounding: string;
-  CashFlows: CashFlow[];
-}
 
-interface DeferralData {
-  pvDate?: Date;
-  from: Date;
-  to: Date;
-  compoundFreq: number;
-  paymentFreq: number;
-}
 
-interface CfArray {
-  RowID?: number;
-  PmtNmbr?: number;
-  RootPmtPntr?: number[];
-  CaseCode?: string;
-  Date: Date; // Use string for time in ISO format or use a Date object if preferred
-  Amount: number;
-  DiscountFactor?: number;
-  DCF?: number;
-  Kind: number;
-  Escrow?: boolean;
-  Unknown?: boolean;
-  Freq?: string;
-  Owner?: string;
-  dcfStubPeriods?: number;
-  dcfStubDays?: number;
-  stubPeriods?: number;
-  stubDays?: number;
-}
 
 
 const FreqMap: { [key: string]: number } = {
@@ -151,7 +137,6 @@ const FreqMap: { [key: string]: number } = {
   Payment: 0,
 };
 
-type AnnuityArray = CfArray[];
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -992,3 +977,51 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
   }
   return ToFixed(numberPmts * amount, 2);
 }
+
+
+
+const mockAnnuity: Annuity = {
+  DCFCode: "DUMMY_DCF",
+  Compounding: "Quarterly",
+  Effective: 1.2,
+  Nominal: 1.3,
+  Label: "DUMMY_LABEL",
+  DailyRate: 1.4,
+  Desc: "DUMMY_DESC",
+  Type: "DUMMY_TYPE",
+  Unknown: false,
+  UseAmSchedule: false,
+  EstimateDCF: 1.5,
+  AsOf: new Date(),
+  CashFlows: [
+    {
+      CaseCode: "TEST001",
+      ParentChild: "Parent",
+      Buyer: "John",
+      CfType: "Return",
+      First: "2023-01-01",
+      Last: "2023-12-31",
+      Number: 1,
+      Amount: 2000,
+      Frequency: "Monthly",
+      COLA: 0,
+      ColaPeriods: 1,
+      Unknown: false,
+      Escrow: true
+    }
+    //... you can add more CashFlow objects if needed
+  ],
+  Carrier: "DUMMY_CARRIER",
+  Aggregate: 1.6,
+  CustomCF: false,
+  DocumentRecipient: "DUMMY_RECIPIENT"
+};
+
+
+console.log(calcAnnuity(mockAnnuity, true));
+
+calcAnnuity(mockAnnuity, true).then(result => {
+  console.log(result);
+}).catch(error => {
+  console.error(error);
+});
