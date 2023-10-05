@@ -284,6 +284,8 @@ async function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
 }
 
 function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray, Date] {
+  console.log("newCashflowArray called with:", pmts, compounding);
+
   let pFreq: number;
   let cfType: number;
   let i: number = 0;
@@ -292,14 +294,19 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
   let sortRequired = false, asOfBool = false;
   const aa: AnnuityArray = new Array<CfArray>(paymentCount(pmts));
 
+  console.log("Initial AnnuityArray:", aa);
+
   for (let row = 0; row < pmts.length; row++) {
     const v = pmts[row];
     firstPaymentDate = parseDateFromString(v.First);
     let amount = v.Amount;
     let tracker = amount;
 
+    console.log(`Processing payment at index ${row}:`, v);
+
     if (v.COLA !== 0 && v.ColaPeriods === 0) {
       pmts[row].ColaPeriods = FreqMap[v.Frequency];
+      console.log("Updated ColaPeriods for payment:", pmts[row]);
     }
 
     if (v.CfType === "Invest") {
@@ -307,6 +314,7 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
       if (!asOfBool) {
         asOf = firstPaymentDate;
         asOfBool = true;
+        console.log("Updated asOf date based on Invest type:", asOf);
       }
     } else {
       cfType = 1;
@@ -323,7 +331,7 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
     for (let j = 0; j < v.Number; j++) {
       aa[i] = {
         RowID: row,
-        Date: addMonths(firstPaymentDate, j * pFreq),
+        Date: dateutils.AddMonths(firstPaymentDate, j * pFreq),
         Amount: amount,
         Kind: cfType,
         Escrow: escrow,
@@ -331,7 +339,15 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
         Owner: v.Buyer,
         PmtNmbr: i,
         Freq: v.Frequency,
-      };
+        RootPmtPntr: [],  // initializing with empty array
+        DCF: 0,  // initializing with 0 value
+        Unknown: false,  // initializing with false
+        dcfStubPeriods: 0,  // initializing with 0 value
+        dcfStubDays: 0,  // initializing with 0 value
+        stubPeriods: 0,  // initializing with 0 value
+        stubDays: 0  // initializing with 0 value
+    };
+      console.log(`Updated AnnuityArray at index ${i}:`, aa[i]);
       i++;
 
       if ((j + 1) * pFreq % 12 === 0 && v.COLA !== 0 && j !== v.Number - 1) {
@@ -351,8 +367,9 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
         return a.RowID! - b.RowID!;
       }
     });
+    console.log("Sorted AnnuityArray:", aa);
   }
-
+  console.log("Returning from newCashflowArray with:", aa, asOf);
   return [aa, asOf];
 }
 
