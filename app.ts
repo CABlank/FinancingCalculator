@@ -188,14 +188,55 @@ async function NewAnnuity(req: Request): Promise<{ error: Error | null; annuity:
   return { error, annuity };
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 async function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
   let err = null;
   const result: Answer = {} as Answer
+  console.log("Starting calcAnnuity function...");
 
   if(annuity) {
     let aa = [];
     
       [aa, annuity.AsOf] = newCashflowArray(annuity.CashFlows, annuity.Compounding);
+      console.log("Cashflow Array:", aa);
       setStubs(aa, annuity);
     
 
@@ -203,28 +244,42 @@ async function calcAnnuity(annuity: Annuity | null, schedule: boolean | null) {
       result.UnknownRow = -1;
       [result.Answer, err] = await amortizeRate(aa, annuity);
       annuity.Effective = effective(result.Answer);
+      console.log("Solving for rate:", result.Answer);
+
     } else {
       result.UnknownRow = getUnknownRow(annuity);
       annuity.DailyRate = annuity.Nominal / 365;
       [result.Answer, err] = await amortizeCF(aa, annuity, result.UnknownRow);
+      console.log("Solving for cashflow:", result.Answer);
     }
 
     if (err === null) {
       result.PV = getAnnuityPV(aa, annuity.AsOf);
+      console.log("Annuity PV:", result.PV);
+
       if (result.PV !== 0 && result.DCFpv === 0) {
         result.DCFpv = estimatePV(aa, annuity.Effective);
+        console.log("DCFpv:", result.DCFpv);
       }
-
-      annuity.Aggregate = ToFixed(aaAggregate(aa), 2);
+      
+      annuity.Aggregate = toFixed(aaAggregate(aa), 2);
       result.WAL = calcWAL(aa, annuity.Aggregate);
+      console.log("WAL:", result.WAL);
 
       if (schedule) {
         result.AmSchedule = createAmSchedule(result, aa, annuity, paymentCount(annuity.CashFlows));
         result.YeValuations = yearEndSummary(aa, annuity, result);
+        console.log("Schedule & Year-end valuations created.");
       }
+
       result.TotalPayout = annuity.Aggregate;
+      console.log("Total payout:", result.TotalPayout);
     }
+    
+  }  else {
+    console.log("Annuity is null. Exiting...");
   }
+  
   return [result, err];
 }
 
@@ -281,7 +336,7 @@ function newCashflowArray(pmts: CashFlow[], compounding: string): [AnnuityArray,
 
       if ((j + 1) * pFreq % 12 === 0 && v.COLA !== 0 && j !== v.Number - 1) {
         tracker *= 1.0 + v.COLA;
-        amount = ToFixed(tracker, 2); // Define ToFixed function as needed
+        amount = toFixed(tracker, 2); // Define toFixed function as needed
       }
     }
   }
@@ -412,7 +467,7 @@ function calcWAL(aa: AnnuityArray, aggregate: number): number {
     walAgg += dayDiff * v.Amount;
   }
 
-  return ToFixed(walAgg / (aggregate * 365), 1);
+  return toFixed(walAgg / (aggregate * 365), 1);
 }
 
 function calcWALWithAggregate(aa: CfArray[], aggregate: number): number {
@@ -430,7 +485,7 @@ function calcWALWithAggregate(aa: CfArray[], aggregate: number): number {
     dayDiff = diffDays(v.Date, walDate!);
     walAgg += dayDiff * v.Amount;
   }
-  return ToFixed(walAgg / aggregate / 365, 1);
+  return toFixed(walAgg / aggregate / 365, 1);
 }
 
 function nominal(rate: number): number {
@@ -470,7 +525,7 @@ function estimatePV(aa: CfArray[], rate: number): number {
       if (v.dcfStubPeriods !== undefined && v.dcfStubDays !== undefined) {
         const period = v.dcfStubPeriods + (v.dcfStubDays / 365 * 12);
         aa[i].DiscountFactor = (1 / Math.pow(1 + rate, period / 12)) * v.Kind;
-        aa[i].DCF = ToFixed(aa[i].DiscountFactor! * aa[i].Amount, 2);
+        aa[i].DCF = toFixed(aa[i].DiscountFactor! * aa[i].Amount, 2);
         pvEstimate += aa[i].DCF!;
         // Use the non-null assertion operator (!) to tell TypeScript that DCF is not null/undefined
       }
@@ -585,9 +640,9 @@ async function amortizeCF(aa: AnnuityArray, annuity: Annuity, unknownRow: number
   }
   console.log("Number of iterations:", iterations);
   if (annuity.CashFlows[unknownRow].COLA !== 0) {
-      updateAnnuity(aa, ToFixed(guess, 2), annuity, unknownRow);
+      updateAnnuity(aa, toFixed(guess, 2), annuity, unknownRow);
   }
-  return [ToFixed(guess, 2), null];
+  return [toFixed(guess, 2), null];
 }
 
 function amortize(aa: AnnuityArray, annuity: Annuity): number {
@@ -632,7 +687,7 @@ function round(num: number): number {
   return Math.floor(num + 0.5);
 }
 
-function ToFixed(num: number, precision: number): number {
+function toFixed(num: number, precision: number): number {
   const output = Math.pow(10, precision);
   return Math.round(num * output) / output;
 }
@@ -672,8 +727,8 @@ function roundFirstDCFPayment(result: Answer, annuity: Annuity): void {
       const d = new Date(result.AmSchedule[i].Date);
 
       if (result.AmSchedule[i].Type === "Return" && d.getTime() !== annuity.AsOf.getTime()) {
-          result.AmSchedule[i].DCFPrincipal! += ToFixed(result.PV - result.DCFpv, 2);
-          result.AmSchedule[i].DCFInterest! -= ToFixed(result.PV - result.DCFpv, 2);
+          result.AmSchedule[i].DCFPrincipal! += toFixed(result.PV - result.DCFpv, 2);
+          result.AmSchedule[i].DCFInterest! -= toFixed(result.PV - result.DCFpv, 2);
           break;
       }
   }
@@ -700,13 +755,13 @@ function schedRow(aa: AnnuityArray, index: number, annuity: Annuity, result: Ans
 
   data.accruedInterest = data.balance! - previousBalance;
   data.balance -= AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind;
-  data.balance = ToFixed(data.balance!, 2);
+  data.balance = toFixed(data.balance!, 2);
 
-  data.principal = ToFixed(previousBalance - data.balance!, 2);
+  data.principal = toFixed(previousBalance - data.balance!, 2);
   return amSchedReturnVals(data, AnnuityArrayAtIndex, index);
 }
 
-// Placeholder for any missing functions or types, like `ToFixed`, `insertSchedTotals`, `FreqMap`, `AnnuityArray`, `CfArray`, etc.
+// Placeholder for any missing functions or types, like `toFixed`, `insertSchedTotals`, `FreqMap`, `AnnuityArray`, `CfArray`, etc.
 // You'd need to define or replace them accordingly.
 
 function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, index: number): Schedule {
@@ -717,10 +772,10 @@ function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, ind
 
   if (AnnuityArrayAtIndex.Kind === 1) {
     s.Type = 'Return';
-    s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF!, 2);
+    s.DCFInterest = toFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF!, 2);
     s.DCFPrincipal = AnnuityArrayAtIndex.DCF!;
     if (index === 0) {
-      data.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
+      data.balance = toFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
     } else {
       s.Principal = data.principal!;
       s.Interest = AnnuityArrayAtIndex.Amount - data.principal!;
@@ -728,11 +783,11 @@ function amSchedReturnVals(data: ScheduleData, AnnuityArrayAtIndex: CfArray, ind
   } else {
     s.Type = 'Invest';
     if (index === 0) {
-      data.balance = ToFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
+      data.balance = toFixed(-AnnuityArrayAtIndex.Amount * AnnuityArrayAtIndex.Kind, 2);
       s.DCFPrincipal = AnnuityArrayAtIndex.Amount;
     } else {
       s.Interest = data.accruedInterest!;
-      s.DCFInterest = ToFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF!, 2);
+      s.DCFInterest = toFixed(AnnuityArrayAtIndex.Amount - AnnuityArrayAtIndex.DCF!, 2);
     }
   }
 
@@ -789,12 +844,12 @@ function insertSchedTotals(result: Answer): Schedule[] {
           year = result.AmSchedule[i + 1].Date.slice(-4);
       } else {
           if (result.AmSchedule[i].Type === "Return") {
-              totals.payments += ToFixed(result.AmSchedule[i].Payment, 2);
-              totals.interest += ToFixed(result.AmSchedule[i].Interest!, 2);
-              totals.dcfInterest += ToFixed(result.AmSchedule[i].DCFInterest!, 2);
-              totals.totalDCFInterest += ToFixed(result.AmSchedule[i].DCFInterest!, 2);
-              totals.totalPayments += ToFixed(result.AmSchedule[i].Payment, 2);
-              totals.totalInterest += ToFixed(result.AmSchedule[i].Interest!, 2);
+              totals.payments += toFixed(result.AmSchedule[i].Payment, 2);
+              totals.interest += toFixed(result.AmSchedule[i].Interest!, 2);
+              totals.dcfInterest += toFixed(result.AmSchedule[i].DCFInterest!, 2);
+              totals.totalDCFInterest += toFixed(result.AmSchedule[i].DCFInterest!, 2);
+              totals.totalPayments += toFixed(result.AmSchedule[i].Payment, 2);
+              totals.totalInterest += toFixed(result.AmSchedule[i].Interest!, 2);
           }
       }
   }
@@ -942,7 +997,7 @@ function getDCFYearlyInterest(year: number, result: Answer): number {
 }
 
 
-// Assuming you've already defined `FreqMap` and `ToFixed` function in TypeScript.
+// Assuming you've already defined `FreqMap` and `toFixed` function in TypeScript.
 
 function aggregate(frequency: string, numberPmts: number, amount: number, cola: number): number {
   if (cola !== 0 && FreqMap[frequency] !== 0) {
@@ -953,12 +1008,12 @@ function aggregate(frequency: string, numberPmts: number, amount: number, cola: 
           aggregate += amount;
           if ((i + 1) % colaPeriods === 0 && (i + 1) < numberPmts) {
               tracker *= 1 + cola;
-              amount = ToFixed(tracker, 2);
+              amount = toFixed(tracker, 2);
           }
       }
-      return ToFixed(aggregate, 2);
+      return toFixed(aggregate, 2);
   }
-  return ToFixed(numberPmts * amount, 2);
+  return toFixed(numberPmts * amount, 2);
 }
 
 
